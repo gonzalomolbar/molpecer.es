@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Gonzalo Molpeceres</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="stylesheet" href="css/styles.css">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+</head>
+<body>
+	<div class="container" style="position: relative; z-index: 2;">
+		<!-- Create invisible overlay for events (foreground) -->
+		<div id="eventOverlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: auto;"></div>
+
+		<!-- Profile -->
+		<div class="profile section" style="position: relative; z-index: 3;">
+			<img src="resources/profile.png" alt="Gonzalo Molpeceres">
+			<h1>Gonzalo Molpeceres</h1>
+			<h2>Software Developer</h2>
+			<div class="social">
+				<a href="mailto:gonzalomolbar@gmail.com"><i class="fa fa-envelope"></i></a>
+				<a href="https://linkedin.com/in/gonzalomolbar"><i class="fa fa-linkedin"></i></a>
+				<a href="https://github.com/gonzalomolbar"><i class="fa fa-github"></i></a>
+				<a href="https://docs.google.com/document/d/1ksc7UAYhFPhv9J7zSjoYRjwFGMoBsqpj14CaxnqN4YM/export?format=pdf" target="_blank"><i class="fa fa-file-pdf-o"></i></a>
+			</div>
+			<p class="bio">Driven and inquisitive developer passionate about leveraging innovative solutions to shape the future.</p>
+		</div>
+
+		<!-- Skills -->
+		<div class="section" style="position: relative; z-index: 3;">
+			<h2>Skills</h2>
+			<div class="skills">
+				<div class="skill">
+					<h3>Python</h3>
+					<p>Advanced Python understanding of the language internals, design patterns, linting, and best practices.</p>
+				</div>
+				<div class="skill">
+					<h3>Django</h3>
+					<p>Extensive experience with Django including performatic ORM usage, Authentication, and DRF clean usage.</p>
+				</div>
+				<div class="skill">
+					<h3>SQL</h3>
+					<p>Skilled in SQL with a focus on PostgreSQL. Experienced in designing schemas, writing complex queries, and optimizing performance. Proficient in ensuring data integrity and managing database relationships.</p>
+				</div>
+				<div class="skill">
+					<h3>AWS</h3>
+					<p>Proficient in Amazon Web Services (AWS) with experience in various services including IAM, S3, RDS, Lambda, EC2, ECS, SQS, Athena, and CloudFormation.</p>
+				</div>
+			</div>
+		</div>
+
+		<!-- Experience -->
+		<div class="section" style="position: relative; z-index: 3;">
+			<h2>Experience</h2>
+			<div class="experience">
+				<div class="job">
+					<span class="date">2019 - Present</span>
+					<h3>Backend Engineer</h3>
+					<p>Teampay</p>
+				</div>
+				<div class="job">
+					<span class="date">2018 - 2019</span>
+					<h3>Software Developer</h3>
+					<p>Drotium - Neural Network Development</p>
+				</div>
+			</div>
+		</div>
+
+		<!-- Projects -->
+		<div class="section" style="position: relative; z-index: 3;">
+			<h2>Projects</h2>
+			<div class="project">
+				<img src="resources/lightsaber_green.jpg" alt="Lightsaber">
+				<h3>Arduino Lightsaber</h3>
+				<p>Motion-detecting lightsaber with sound effects and LED controls</p>
+				<a href="https://github.com/gonzalomolbar/LightSaber">View Project</a>
+			</div>
+		</div>
+	</div>
+	<script src="js/main.js"></script>
+</body>
+</html>
