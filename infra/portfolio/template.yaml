@@ -87,6 +87,10 @@ Resources:
           AllowedMethods: [GET, HEAD]
           CachedMethods: [GET, HEAD]
           Compress: true
+          ResponseHeadersPolicyId: 67f7725c-6f97-4210-82d7-5512b31e9d03 # managed SecurityHeadersPolicy
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt WwwRedirect.FunctionARN
           ForwardedValues:
             QueryString: false
             Cookies:
@@ -94,6 +98,37 @@ Resources:
           MinTTL: 0
           DefaultTTL: 86400
           MaxTTL: 31536000
+
+  # www.molpecer.es -> molpecer.es, same path and query string.
+  WwwRedirect:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: molpecer-portfolio-www-redirect
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Redirect www.molpecer.es to molpecer.es
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          var host = request.headers.host ? request.headers.host.value : '';
+          if (host !== 'www.molpecer.es') {
+            return request;
+          }
+          var qs = '';
+          for (var key in request.querystring) {
+            var entry = request.querystring[key];
+            var values = entry.multiValue ? entry.multiValue.map(function (v) { return v.value; }) : [entry.value];
+            for (var i = 0; i < values.length; i++) {
+              qs += (qs ? '&' : '?') + encodeURIComponent(key) + '=' + encodeURIComponent(values[i]);
+            }
+          }
+          return {
+            statusCode: 301,
+            statusDescription: 'Moved Permanently',
+            headers: { location: { value: 'https://molpecer.es' + request.uri + qs } }
+          };
+        }
 
 Outputs:
   DistributionId:

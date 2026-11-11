@@ -152,6 +152,24 @@ Resources:
                 Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${PortfolioDistributionId}
               - Effect: Allow
                 Action:
+                  - cloudfront:CreateFunction
+                  - cloudfront:UpdateFunction
+                  - cloudfront:DeleteFunction
+                  - cloudfront:PublishFunction
+                  - cloudfront:DescribeFunction
+                  - cloudfront:GetFunction
+                  - cloudfront:TagResource
+                  - cloudfront:UntagResource
+                  - cloudfront:ListTagsForResource
+                Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:function/${PortfolioStackName}-*
+              - Effect: Allow
+                Action:
+                  - cloudfront:GetResponseHeadersPolicy
+                  - cloudfront:GetCachePolicy
+                  - cloudfront:GetOriginRequestPolicy
+                Resource: "*"
+              - Effect: Allow
+                Action:
                   - s3:GetBucket*
                   - s3:GetEncryptionConfiguration
                   - s3:GetBucketPublicAccessBlock
