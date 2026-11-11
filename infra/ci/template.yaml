@@ -1,0 +1,173 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  CI identities for the molpecer.es repo: the GitHub OIDC provider and the
+  roles GitHub Actions assumes. Deployed by hand (stack molpecer-ci); it is the
+  bootstrap, so no workflow deploys it.
+
+Parameters:
+  Repository:
+    Type: String
+    Default: gonzalomolbar/molpecer.es
+  PortfolioBucket:
+    Type: String
+    Default: molpecer.es
+  PortfolioDistributionId:
+    Type: String
+    Default: E1B54NC2MXAXV3
+  PortfolioStackName:
+    Type: String
+    Default: molpecer-portfolio
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+        - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
+
+  # Content deploy: sync portfolio/ to the bucket and invalidate. Environment "portfolio".
+  PortfolioDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: molpecer-portfolio-deploy
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${Repository}:environment:portfolio
+      Policies:
+        - PolicyName: sync-and-invalidate
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub arn:aws:s3:::${PortfolioBucket}
+              - Effect: Allow
+                Action: [s3:PutObject, s3:GetObject, s3:DeleteObject]
+                Resource: !Sub arn:aws:s3:::${PortfolioBucket}/*
+              - Effect: Allow
+                Action: cloudfront:CreateInvalidation
+                Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${PortfolioDistributionId}
+
+  # Infra plan: create and describe a change set on pull requests and on main. Cannot execute anything.
+  PortfolioInfraPlanRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: molpecer-portfolio-infra-plan
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub:
+                  - !Sub repo:${Repository}:pull_request
+                  - !Sub repo:${Repository}:ref:refs/heads/main
+      Policies:
+        - PolicyName: change-set-read
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:ListChangeSets
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:GetTemplate
+                  - cloudformation:GetTemplateSummary
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${PortfolioStackName}/*
+              - Effect: Allow
+                Action: cloudformation:ValidateTemplate
+                Resource: "*"
+
+  # Infra apply: the same change-set flow plus execution, on main. Environment "portfolio-infra".
+  PortfolioInfraRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: molpecer-portfolio-infra
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${Repository}:environment:portfolio-infra
+      Policies:
+        - PolicyName: stack-update
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:ListChangeSets
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:GetTemplate
+                  - cloudformation:GetTemplateSummary
+                  - cloudformation:DetectStackDrift
+                  - cloudformation:DescribeStackResourceDrifts
+                  - cloudformation:DescribeStackDriftDetectionStatus
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${PortfolioStackName}/*
+              - Effect: Allow
+                Action: cloudformation:ValidateTemplate
+                Resource: "*"
+              # What CloudFormation touches on the caller's behalf when the stack changes.
+              - Effect: Allow
+                Action:
+                  - cloudfront:GetDistribution
+                  - cloudfront:GetDistributionConfig
+                  - cloudfront:UpdateDistribution
+                  - cloudfront:TagResource
+                  - cloudfront:UntagResource
+                  - cloudfront:ListTagsForResource
+                Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${PortfolioDistributionId}
+              - Effect: Allow
+                Action:
+                  - s3:GetBucket*
+                  - s3:GetEncryptionConfiguration
+                  - s3:GetBucketPublicAccessBlock
+                  - s3:ListBucket
+                  - s3:PutBucketWebsite
+                  - s3:PutBucketPolicy
+                  - s3:PutEncryptionConfiguration
+                  - s3:PutBucketOwnershipControls
+                  - s3:PutBucketPublicAccessBlock
+                  - s3:PutBucketTagging
+                Resource: !Sub arn:aws:s3:::${PortfolioBucket}
+
+Outputs:
+  PortfolioDeployRoleArn:
+    Value: !GetAtt PortfolioDeployRole.Arn
+  PortfolioInfraPlanRoleArn:
+    Value: !GetAtt PortfolioInfraPlanRole.Arn
+  PortfolioInfraRoleArn:
+    Value: !GetAtt PortfolioInfraRole.Arn
