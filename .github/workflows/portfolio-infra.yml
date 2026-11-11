@@ -1,0 +1,82 @@
+name: Portfolio infra
+
+# Pull requests: lint and show the change set (read-only role).
+# Push to main: lint, plan, refuse replacements, apply.
+
+on:
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/portfolio-infra.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infra/portfolio/**"
+      - ".github/workflows/portfolio-infra.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: us-east-1
+  STACK: molpecer-portfolio
+  CHANGE_SET: run-${{ github.run_id }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: pipx run cfn-lint infra/portfolio/template.yaml infra/ci/template.yaml
+
+  plan:
+    needs: lint
+    runs-on: ubuntu-latest
+    outputs:
+      empty: ${{ steps.plan.outputs.empty }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Create change set
+        id: plan
+        run: |
+          aws cloudformation create-change-set --stack-name "$STACK" --change-set-name "$CHANGE_SET" \
+            --change-set-type UPDATE --template-body file://infra/portfolio/template.yaml > /dev/null
+          aws cloudformation wait change-set-create-complete --stack-name "$STACK" --change-set-name "$CHANGE_SET" || true
+          desc="$(aws cloudformation describe-change-set --stack-name "$STACK" --change-set-name "$CHANGE_SET")"
+          if [ "$(jq -r .Status <<<"$desc")" = FAILED ]; then
+            reason="$(jq -r .StatusReason <<<"$desc")"
+            case "$reason" in
+              *"didn't contain changes"*|*"No updates are to be performed"*)
+                echo "no changes" | tee -a "$GITHUB_STEP_SUMMARY"; echo "empty=true" >> "$GITHUB_OUTPUT"; exit 0 ;;
+              *) echo "change set failed: $reason"; exit 1 ;;
+            esac
+          fi
+          { echo '```'
+            jq -r '.Changes[].ResourceChange | "\(.Action)\t\(.LogicalResourceId)\t\(.ResourceType)\treplacement=\(.Replacement // "n/a")\t\([.Details[]?.Target.Name] | unique | join(","))"' <<<"$desc"
+            echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+          if jq -e '[.Changes[].ResourceChange | select(.Replacement == "True")] | length > 0' <<<"$desc" > /dev/null; then
+            echo "::error::a resource would be replaced; refusing"; exit 1
+          fi
+      - name: Drop the change set (pull request)
+        if: github.event_name == 'pull_request' && always()
+        run: aws cloudformation delete-change-set --stack-name "$STACK" --change-set-name "$CHANGE_SET" || true
+
+  apply:
+    if: github.event_name == 'push' && needs.plan.outputs.empty != 'true'
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: portfolio-infra
+    steps:
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      - run: |
+          aws cloudformation execute-change-set --stack-name "$STACK" --change-set-name "$CHANGE_SET"
+          aws cloudformation wait stack-update-complete --stack-name "$STACK"
+          aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text

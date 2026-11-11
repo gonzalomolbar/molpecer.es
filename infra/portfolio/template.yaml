@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  molpecer.es portfolio: the bucket, its public-read policy and the
+  CloudFront distribution. The certificate and Route 53 are managed outside.
+
+Parameters:
+  CertificateArn:
+    Type: String
+    Default: arn:aws:acm:us-east-1:767105089665:certificate/f37c4985-7607-429b-b80b-842c3b54f564
+    Description: ACM certificate (us-east-1) for molpecer.es and *.molpecer.es, managed outside this stack.
+
+Resources:
+  PortfolioBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: molpecer.es
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        IgnorePublicAcls: false
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+
+  PortfolioBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Bucket: !Ref PortfolioBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: !Sub "arn:aws:s3:::${PortfolioBucket}/*"
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      DistributionConfig:
+        Comment: Distribution for molpecer.es
+        Enabled: true
+        Aliases:
+          - molpecer.es
+          - www.molpecer.es
+        HttpVersion: http2
+        IPV6Enabled: true
+        PriceClass: PriceClass_All
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        Restrictions:
+          GeoRestriction:
+            RestrictionType: none
+        Origins:
+          - Id: S3-molpecer.es
+            DomainName: !Sub "${PortfolioBucket}.s3-website-us-east-1.amazonaws.com"
+            ConnectionAttempts: 3
+            ConnectionTimeout: 10
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+              OriginSSLProtocols: [TLSv1.2]
+              OriginReadTimeout: 30
+              OriginKeepaliveTimeout: 5
+        DefaultCacheBehavior:
+          TargetOriginId: S3-molpecer.es
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          MinTTL: 0
+          DefaultTTL: 86400
+          MaxTTL: 31536000
+
+Outputs:
+  DistributionId:
+    Value: !Ref Distribution
+  DistributionArn:
+    Value: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}"
+  DistributionDomainName:
+    Value: !GetAtt Distribution.DomainName
+  PortfolioBucketName:
+    Value: !Ref PortfolioBucket
+  PortfolioWebsiteEndpoint:
+    Value: !GetAtt PortfolioBucket.WebsiteURL
