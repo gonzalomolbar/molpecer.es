@@ -142,6 +142,10 @@ def test_admin_login_and_wall(app):
     ev = event("GET", "/api/wall/posts", cookies=jar); ev["queryStringParameters"] = {"month": "march"}
     assert [p["name"] for p in json.loads(app.handler(ev, None)["body"])["posts"]] == ["Ana"]
 
+    status, body, _ = call(app, "GET", f"/api/wall/posts/{p2['id']}", cookies=jar)
+    assert status == 200 and body["post"]["name"] == "Bo" and body["post"]["full"].startswith("https://")
+    assert call(app, "GET", "/api/wall/posts/01ARZ3NDEKTSV4RRFFQ69G5FAV", cookies=jar)[0] == 410
+    assert call(app, "GET", f"/api/wall/posts/{p2['id']}")[0] == 401
     assert call(app, "DELETE", f"/api/wall/posts/{p1['id']}", cookies=jar)[0] == 200
     from shared import store
     post = store.get_post(p1["id"])

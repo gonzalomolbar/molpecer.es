@@ -179,14 +179,22 @@ def wall_posts(req, who):
     kind = q.get("kind") if q.get("kind") in config.KINDS else None
     status = q.get("status") if q.get("status") in ("awaiting_upload", "processing", "done", "failed", "deleted") else None
     items, cursor = store.list_posts(month=month, kind=kind, status=status, cursor=q.get("cursor"))
-    out = []
-    for p in items:
-        item = {k: p.get(k) for k in ("id", "kind", "month", "name", "text", "created", "status", "code", "visitor", "actions", "width", "height")}
-        if p.get("status") == "done":
-            item["full"] = _signed_get(f"media/{p['id']}/full.webp")
-            item["thumb"] = _signed_get(f"media/{p['id']}/thumb.webp")
-        out.append(item)
-    return respond(200, {"posts": out, "cursor": cursor})
+    return respond(200, {"posts": [_wall_item(p) for p in items], "cursor": cursor})
+
+
+def _wall_item(p):
+    item = {k: p.get(k) for k in ("id", "kind", "month", "name", "text", "created", "status", "code", "visitor", "actions", "width", "height")}
+    if p.get("status") == "done":
+        item["full"] = _signed_get(f"media/{p['id']}/full.webp")
+        item["thumb"] = _signed_get(f"media/{p['id']}/thumb.webp")
+    return item
+
+
+def wall_post(req, who, post_id):
+    post = store.get_post(post_id)
+    if not post:
+        return error(410, "gone")
+    return respond(200, {"post": _wall_item(post)})
 
 
 def _signed_get(key):
@@ -264,6 +272,8 @@ def route(req):
         if p == "/api/wall/posts" and m == "GET":
             return wall_posts(req, who)
         mm = re.match(r"^/api/wall/posts/([0-9A-Z]{26})$", p)
+        if mm and m == "GET":
+            return wall_post(req, who, mm.group(1))
         if mm and m == "DELETE":
             return wall_delete(req, who, mm.group(1))
         if p == "/api/wall/bans" and m == "GET":

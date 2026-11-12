@@ -23,7 +23,27 @@ document.addEventListener('DOMContentLoaded', function () {
   function enter() {
     $('login').classList.add('hidden'); $('wall').classList.remove('hidden'); $('logout').classList.remove('hidden');
     $('logout').textContent = 'Logout (' + me + ')';
-    load(true);
+    route();
+  }
+
+  // #<post id> shows that one post with its details open; otherwise the filtered list.
+  function route() {
+    var id = (location.hash || '').slice(1);
+    var single = /^[0-9A-Z]{26}$/.test(id);
+    $('single-bar').classList.toggle('hidden', !single);
+    $('filters-card').classList.toggle('hidden', single);
+    if (single) loadOne(id); else load(true);
+  }
+  window.addEventListener('hashchange', route);
+  $('all-posts').addEventListener('click', function () { history.replaceState(null, '', '/wall'); route(); });
+
+  async function loadOne(id) {
+    $('posts').innerHTML = ''; $('more').classList.add('hidden'); $('count').textContent = '';
+    var r = await window.api('GET', '/api/wall/posts/' + id);
+    if (r.status === 401) { location.reload(); return; }
+    if (r.status !== 200) { $('single-title').textContent = 'Post ' + id + ': ' + (r.data.error || r.status); return; }
+    $('single-title').textContent = 'Post ' + id;
+    render(r.data.post, true);
   }
 
   // --- list ---
@@ -44,7 +64,6 @@ document.addEventListener('DOMContentLoaded', function () {
     cursor = r.data.cursor;
     $('more').classList.toggle('hidden', !cursor);
     $('count').textContent = items.length + ' shown';
-    if (location.hash && reset) { var el = document.getElementById('post-' + location.hash.slice(1)); if (el) el.scrollIntoView(); }
   }
   ['f-month', 'f-kind', 'f-status'].forEach(function (id) { $(id).addEventListener('change', function () { load(true); }); });
   $('reload').addEventListener('click', function () { load(true); });
@@ -52,7 +71,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
 
-  function render(p) {
+  function render(p, open) {
     var box = el('div', 'post'); box.id = 'post-' + p.id;
     if (p.thumb) {
       var a = el('a'); a.href = p.full; var img = el('img'); img.src = p.thumb; img.alt = ''; a.appendChild(img);
@@ -68,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function () {
     body.appendChild(el('div', '', p.name || '(no name)'));
     if (p.text) body.appendChild(el('div', 'text', p.text));
     var v = p.visitor || {};
-    var det = el('details'); det.appendChild(el('summary', '', [v.city, v.country, v.device].filter(Boolean).join(' · ') || 'details'));
+    var det = el('details'); if (open) det.open = true; det.appendChild(el('summary', '', [v.city, v.country, v.device].filter(Boolean).join(' · ') || 'details'));
     var dl = el('dl');
     [['ip', v.ip], ['net', v.net], ['place', [v.city, v.region, v.country, v.postal].filter(Boolean).join(', ')], ['geo', v.lat && v.lon ? v.lat + ', ' + v.lon : ''], ['tz', v.tz], ['device', v.device], ['lang', v.lang], ['ua', v.ua], ['referer', v.referer], ['size', p.width && p.height ? p.width + 'x' + p.height : ''], ['id', p.id],
       ['actions', (p.actions || []).map(function (a) { return a.what + ' by ' + a.who + ' at ' + a.at; }).join('; ')]]
