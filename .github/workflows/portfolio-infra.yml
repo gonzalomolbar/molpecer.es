@@ -46,7 +46,7 @@ jobs:
         run: |
           aws cloudformation create-change-set --stack-name "$STACK" --change-set-name "$CHANGE_SET" \
             --change-set-type UPDATE --template-body file://infra/portfolio/template.yaml > /dev/null
-          aws cloudformation wait change-set-create-complete --stack-name "$STACK" --change-set-name "$CHANGE_SET" || true
+          aws cloudformation wait change-set-create-complete --stack-name "$STACK" --change-set-name "$CHANGE_SET" 2>/dev/null || true
           desc="$(aws cloudformation describe-change-set --stack-name "$STACK" --change-set-name "$CHANGE_SET")"
           if [ "$(jq -r .Status <<<"$desc")" = FAILED ]; then
             reason="$(jq -r .StatusReason <<<"$desc")"
