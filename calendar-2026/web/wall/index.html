@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Calendar 2026 · wall</title>
+<link rel="stylesheet" href="/assets/style.css">
+<script src="/assets/i18n.js" defer></script>
+<script src="/assets/app.js" defer></script>
+<script src="/assets/wall.js" defer></script>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1><a href="/">Calendar 2026 · wall</a></h1>
+    <button type="button" class="ghost hidden" id="logout">Logout</button>
+  </header>
+
+  <section class="card" id="login">
+    <label for="who">Admin</label>
+    <select id="who"><option value="toribios">Toribios</option><option value="molpeceres">Molpeceres</option></select>
+    <label for="admin-code">Code</label>
+    <input type="text" id="admin-code" autocomplete="off" spellcheck="false">
+    <button type="button" class="primary" id="enter">Enter</button>
+    <div class="status" id="login-status"></div>
+  </section>
+
+  <section class="hidden" id="wall">
+    <div class="card hidden" id="single-bar"><div class="row" style="justify-content: space-between"><span class="hint" id="single-title"></span><button type="button" class="ghost" id="all-posts">All posts</button></div></div>
+    <div class="card" id="filters-card">
+      <div class="filters">
+        <select id="f-month"><option value="">All months</option></select>
+        <select id="f-kind"><option value="">All kinds</option><option value="photo">Photo</option><option value="doodle">Doodle</option></select>
+        <select id="f-status"><option value="">Not deleted</option><option value="done">Done</option><option value="failed">Failed</option><option value="awaiting_upload">Awaiting upload</option><option value="deleted">Deleted</option></select>
+      </div>
+      <div class="row" style="margin-top: 10px"><button type="button" class="ghost" id="reload">Reload</button><button type="button" class="ghost" id="show-bans">Bans</button><span class="hint" id="count"></span></div>
+    </div>
+    <div class="card hidden" id="bans"></div>
+    <div class="card" id="posts"></div>
+    <button type="button" class="ghost hidden" id="more">More</button>
+  </section>
+</main>
+<div class="lightbox" id="lightbox"><img id="lightbox-img" alt=""></div>
+</body>
+</html>

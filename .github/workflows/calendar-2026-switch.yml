@@ -1,0 +1,39 @@
+name: Calendar 2026 switch
+
+# Manual kill switch, usable from the GitHub app: Actions, "Calendar 2026 switch", Run workflow.
+#   status  show mode, concurrency and distribution state
+#   open    mode open, functions back to normal concurrency
+#   pause   no API calls; pages and month photos keep working
+#   close   one static "closed" page, zero origin traffic
+#   off     close, then concurrency 0 on both functions
+# "disable" (the distribution itself) stays a hand action in calendar-2026/tools/switch.sh.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What to do
+        type: choice
+        required: true
+        default: status
+        options: [status, open, pause, close, off]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: calendar-2026-switch
+
+jobs:
+  switch:
+    runs-on: ubuntu-latest
+    environment: calendar-2026-switch
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+      - name: Run
+        run: calendar-2026/tools/switch.sh "${{ inputs.action }}" | tee -a "$GITHUB_STEP_SUMMARY"

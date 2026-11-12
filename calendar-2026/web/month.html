@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Calendar 2026</title>
+<link rel="stylesheet" href="/assets/style.css">
+<script src="/assets/i18n.js" defer></script>
+<script src="/assets/app.js" defer></script>
+<script src="/assets/month.js" defer></script>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1><a href="/" data-i18n="title">Calendario 2026</a></h1>
+    <div class="lang"><button type="button" data-lang="es">ES</button><button type="button" data-lang="en">EN</button></div>
+  </header>
+
+  <h2 id="heading"></h2>
+
+  <section class="card hidden" id="not-yet">
+    <p><span data-i18n="not_yet"></span> <strong id="opens-date"></strong></p>
+    <div class="countdown" id="countdown"></div>
+  </section>
+
+  <section class="card hidden" id="locked">
+    <p data-i18n="locked"></p>
+    <label for="code" data-i18n="code_label"></label>
+    <input type="text" id="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="NOMBRE-XXXX">
+    <button type="button" class="primary" id="unlock" data-i18n="unlock"></button>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section class="hidden" id="open">
+    <div class="grid" id="grid"></div>
+    <p class="hint hidden" id="empty" data-i18n="empty_month"></p>
+  </section>
+
+  <nav class="months" id="months"></nav>
+  <footer><a href="/" data-i18n="home"></a></footer>
+</main>
+<div class="lightbox" id="lightbox"><img id="lightbox-img" alt=""></div>
+</body>
+</html>
