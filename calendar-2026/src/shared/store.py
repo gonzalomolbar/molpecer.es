@@ -54,9 +54,10 @@ def ulid():
 
 # ---------- codes ----------
 def code_prefix(name):
-    letters = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode().upper()
-    letters = "".join(ch for ch in letters if ch.isalpha())[:6]
-    return letters or "CAL"
+    """The whole name, accents dropped, letters and digits only, upper case."""
+    plain = unicodedata.normalize("NFKD", name or "").encode("ascii", "ignore").decode().upper()
+    plain = "".join(ch for ch in plain if ch.isalnum())[:12]
+    return plain or "CAL"
 
 
 def new_code(name, length=4):

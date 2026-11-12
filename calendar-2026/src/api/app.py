@@ -62,6 +62,8 @@ def create_post(req):
     text = str(body.get("text") or "").strip()[: config.LIMITS["max_text_chars"]]
     if kind not in config.KINDS:
         return error(400, "bad_fields")
+    if not name:
+        return error(400, "empty_name")
     upload = body.get("upload")
     if not isinstance(upload, dict):
         return error(400, "missing_upload")

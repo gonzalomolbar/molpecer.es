@@ -41,7 +41,7 @@ LIMITS = {
     "global_login_fails_hour": _int("GLOBAL_LOGIN_FAILS_HOUR", 100),
     "max_upload_bytes": _int("MAX_UPLOAD_BYTES", 10 * 1024 * 1024),
     "max_text_chars": _int("MAX_TEXT_CHARS", 1000),
-    "max_name_chars": _int("MAX_NAME_CHARS", 60),
+    "max_name_chars": _int("MAX_NAME_CHARS", 12),
 }
 
 _params = {}

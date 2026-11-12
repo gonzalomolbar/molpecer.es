@@ -47,7 +47,7 @@ Globals:
         GLOBAL_LOGIN_FAILS_HOUR: "100"
         MAX_UPLOAD_BYTES: "10485760"
         MAX_TEXT_CHARS: "1000"
-        MAX_NAME_CHARS: "60"
+        MAX_NAME_CHARS: "12"
 
 Resources:
   # ---------- certificate and DNS (validation record written by CloudFormation) ----------

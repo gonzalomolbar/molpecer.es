@@ -41,7 +41,7 @@ UP = {"size": 1234, "type": "image/jpeg"}
 def test_photo_creates_code_and_cookie(app):
     status, body, cookies = call(app, "POST", "/api/posts", {"kind": "photo", "name": "Luis García", "text": "hola", "pow": "good", "upload": UP})
     assert status == 201
-    assert body["code"].startswith("LUISGA-") and len(body["code"]) == 11
+    assert body["code"].startswith("LUISGARCIA-") and len(body["code"]) == 15
     assert cookies and cookies[0].startswith("calendar2026_s=v.") and "HttpOnly" in cookies[0]
     from shared import store
     post = store.post_for_code(body["code"])
@@ -49,9 +49,13 @@ def test_photo_creates_code_and_cookie(app):
 
 
 def test_photo_returns_presigned_post(app):
-    status, body, _ = call(app, "POST", "/api/posts", {"kind": "photo", "pow": "good", "upload": {"size": 1234, "type": "image/jpeg"}})
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "pow": "good", "upload": UP})[1]["error"] == "empty_name"
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "name": "  ", "pow": "good", "upload": UP})[1]["error"] == "empty_name"
+    status, body, _ = call(app, "POST", "/api/posts", {"kind": "photo", "name": "María-José 2", "pow": "good", "upload": {"size": 1234, "type": "image/jpeg"}})
     assert status == 201
-    assert body["code"].startswith("CAL-")
+    assert body["code"].startswith("MARIAJOSE2-"), body["code"]
+    status, body, _ = call(app, "POST", "/api/posts", {"kind": "photo", "name": "Bartholomew Jr", "pow": "good", "upload": UP})
+    assert body["code"].startswith("BARTHOLOMEW-"), "name cut to 12 characters before the prefix"
     up = body["upload"]
     assert up["fields"]["key"] == f"raw/{body['id']}" and up["fields"]["Content-Type"] == "image/jpeg"
     policy = json.loads(base64.b64decode(up["fields"]["policy"]))
@@ -60,18 +64,18 @@ def test_photo_returns_presigned_post(app):
 
 def test_validation(app):
     assert call(app, "POST", "/api/posts", {"kind": "note", "text": "x", "pow": "good", "upload": UP})[1]["error"] == "bad_fields"
-    assert call(app, "POST", "/api/posts", {"kind": "doodle", "pow": "good"})[1]["error"] == "missing_upload"
-    assert call(app, "POST", "/api/posts", {"kind": "nope", "pow": "good", "upload": UP})[1]["error"] == "bad_fields"
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "pow": "good", "upload": {"size": 99999999, "type": "image/jpeg"}})[0] == 413
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "pow": "good", "upload": {"size": 10, "type": "text/html"}})[1]["error"] == "bad_type"
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "text": "x", "pow": "bad", "upload": UP})[1]["error"] == "bot_check"
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "text": "x", "pow": "good", "upload": UP}, origin=False)[1]["error"] == "csrf"
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "text": "x", "pow": "good", "upload": UP}, origin=False, headers={"sec-fetch-site": "same-origin"})[0] == 201
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "text": "x", "pow": "good", "upload": UP}, headers={"origin": "https://evil.example"})[1]["error"] == "csrf"
+    assert call(app, "POST", "/api/posts", {"kind": "doodle", "name": "Ana", "pow": "good"})[1]["error"] == "missing_upload"
+    assert call(app, "POST", "/api/posts", {"kind": "nope", "name": "Ana", "pow": "good", "upload": UP})[1]["error"] == "bad_fields"
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "name": "Ana", "pow": "good", "upload": {"size": 99999999, "type": "image/jpeg"}})[0] == 413
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "name": "Ana", "pow": "good", "upload": {"size": 10, "type": "text/html"}})[1]["error"] == "bad_type"
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "name": "Ana", "text": "x", "pow": "bad", "upload": UP})[1]["error"] == "bot_check"
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "name": "Ana", "text": "x", "pow": "good", "upload": UP}, origin=False)[1]["error"] == "csrf"
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "name": "Ana", "text": "x", "pow": "good", "upload": UP}, origin=False, headers={"sec-fetch-site": "same-origin"})[0] == 201
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "name": "Ana", "text": "x", "pow": "good", "upload": UP}, headers={"origin": "https://evil.example"})[1]["error"] == "csrf"
 
 
 def test_limits_per_net_and_global(app):
-    body = {"kind": "photo", "text": "x", "pow": "good", "upload": UP}
+    body = {"kind": "photo", "name": "Ana", "text": "x", "pow": "good", "upload": UP}
     for _ in range(3):
         assert call(app, "POST", "/api/posts", body)[0] == 201
     assert call(app, "POST", "/api/posts", body)[1]["error"] == "limit_posts"
@@ -86,7 +90,7 @@ def test_limits_per_net_and_global(app):
 def test_ban_blocks(app):
     from shared import store
     store.ban("203.0.113.9", "toribios")
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "text": "x", "pow": "good", "upload": UP})[1]["error"] == "banned"
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "name": "Ana", "text": "x", "pow": "good", "upload": UP})[1]["error"] == "banned"
 
 
 def test_unlock(app):
@@ -200,4 +204,4 @@ def test_honeypot_fakes_success(app):
     assert status == 201 and body["code"].startswith("BOT-") and cookies == [] and "upload" not in body
     from shared import store
     assert store.post_for_code(body["code"]) is None
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "text": "x", "pow": "good", "upload": UP}, headers={"user-agent": ""})[2] == []
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "name": "Ana", "text": "x", "pow": "good", "upload": UP}, headers={"user-agent": ""})[2] == []

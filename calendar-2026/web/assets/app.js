@@ -76,6 +76,7 @@
     if (e === 'closed') return 'err_closed';
     if (e === 'banned') return 'err_banned';
     if (e === 'unknown_code' || e === 'bad_code') return 'err_code';
+    if (e === 'empty_name') return 'err_name';
     return 'err_generic';
   };
 })();

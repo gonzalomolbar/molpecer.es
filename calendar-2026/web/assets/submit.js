@@ -44,11 +44,13 @@ document.addEventListener('DOMContentLoaded', function () {
   // send
   $('send').addEventListener('click', async function () {
     var text = $('text').value.trim();
+    var name = $('name').value.trim();
+    if (!name) return status(window.t('err_name'), true);
     if (kind === 'photo' && !photoBlob) return status(window.t('err_empty'), true);
     if (kind === 'doodle' && !touched) return status(window.t('err_empty'), true);
     $('send').disabled = true; status(window.t('sending'));
     var blob = kind === 'photo' ? photoBlob : await new Promise(function (r) { canvas.toBlob(r, 'image/png'); });
-    var body = { kind: kind, name: $('name').value.trim(), text: text, pow: await window.proofOfWork(), website: $('website').value };
+    var body = { kind: kind, name: name, text: text, pow: await window.proofOfWork(), website: $('website').value };
     body.upload = { size: blob.size, type: blob.type || 'image/jpeg' };
     var r = await window.api('POST', '/api/posts', body);
     if (r.status !== 201) {
