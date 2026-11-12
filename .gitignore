@@ -22,3 +22,6 @@ ehthumbs.db
 
 # Docs
 docs/
+# build output
+__pycache__/
+.pytest_cache/

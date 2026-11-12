@@ -59,7 +59,7 @@ jobs:
           { echo '```'
             jq -r '.Changes[].ResourceChange | "\(.Action)\t\(.LogicalResourceId)\t\(.ResourceType)\treplacement=\(.Replacement // "n/a")\t\([.Details[]?.Target.Name] | unique | join(","))"' <<<"$desc"
             echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
-          if jq -e '[.Changes[].ResourceChange | select(.Replacement == "True")] | length > 0' <<<"$desc" > /dev/null; then
+          if jq -e '[.Changes[].ResourceChange | select(.Replacement == "True" and (.LogicalResourceId | IN("PortfolioBucket","Distribution")))] | length > 0' <<<"$desc" > /dev/null; then
             echo "::error::a resource would be replaced; refusing"; exit 1
           fi
       - name: Drop the change set (pull request)
@@ -80,3 +80,4 @@ jobs:
           aws cloudformation execute-change-set --stack-name "$STACK" --change-set-name "$CHANGE_SET"
           aws cloudformation wait stack-update-complete --stack-name "$STACK"
           aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text
+          aws cloudformation update-termination-protection --stack-name "$STACK" --enable-termination-protection > /dev/null

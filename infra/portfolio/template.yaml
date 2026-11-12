@@ -1,15 +1,27 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  molpecer.es portfolio: the bucket, its public-read policy and the
-  CloudFront distribution. The certificate and Route 53 are managed outside.
+  molpecer.es portfolio: the certificate, the bucket, its public-read policy,
+  the CloudFront distribution and the AAAA records, in the shared zone owned by
+  the molpecer-dns stack.
 
 Parameters:
-  CertificateArn:
+  HostedZoneId:
     Type: String
-    Default: arn:aws:acm:us-east-1:767105089665:certificate/f37c4985-7607-429b-b80b-842c3b54f564
-    Description: ACM certificate (us-east-1) for molpecer.es and *.molpecer.es, managed outside this stack.
+    Default: Z0539383IHVUAXRRCIKD
+    Description: The molpecer.es zone (stack molpecer-dns).
 
 Resources:
+  # DNS-validated through the zone above; CloudFormation writes the validation record itself.
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: molpecer.es
+      SubjectAlternativeNames: ["*.molpecer.es"]
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: molpecer.es
+          HostedZoneId: !Ref HostedZoneId
+
   PortfolioBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
@@ -63,7 +75,7 @@ Resources:
         IPV6Enabled: true
         PriceClass: PriceClass_All
         ViewerCertificate:
-          AcmCertificateArn: !Ref CertificateArn
+          AcmCertificateArn: !Ref Certificate
           SslSupportMethod: sni-only
           MinimumProtocolVersion: TLSv1.2_2021
         Restrictions:
@@ -130,7 +142,24 @@ Resources:
           };
         }
 
+  ApexAAAA:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: molpecer.es.
+      Type: AAAA
+      AliasTarget: { DNSName: !GetAtt Distribution.DomainName, HostedZoneId: Z2FDTNDATAQYW2, EvaluateTargetHealth: false }
+  WwwAAAA:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: www.molpecer.es.
+      Type: AAAA
+      AliasTarget: { DNSName: !GetAtt Distribution.DomainName, HostedZoneId: Z2FDTNDATAQYW2, EvaluateTargetHealth: false }
+
 Outputs:
+  CertificateArn:
+    Value: !Ref Certificate
   DistributionId:
     Value: !Ref Distribution
   DistributionArn:

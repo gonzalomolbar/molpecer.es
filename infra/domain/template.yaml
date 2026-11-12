@@ -1,0 +1,55 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  molpecer.es domain: the hosted zone (imported once by hand) and everything
+  that belongs to the domain rather than to a site: the mail identity with its
+  DKIM records, SPF, DMARC and a null MX. The two original A alias records for
+  the apex and www predate every stack and stay outside (simple records cannot
+  be imported). Stack molpecer-domain.
+
+Parameters:
+  ReportEmail:
+    Type: String
+    Default: gonzalomolbar@gmail.com
+    Description: Where DMARC aggregate reports go.
+
+Resources:
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: molpecer.es.
+
+  # Sending identity for the whole domain (Easy DKIM); sites send from addresses under it.
+  MailIdentity:
+    Type: AWS::SES::EmailIdentity
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      EmailIdentity: molpecer.es
+      DkimAttributes: { SigningEnabled: true }
+
+  Dkim1:
+    Type: AWS::Route53::RecordSet
+    Properties: { HostedZoneId: !Ref HostedZone, Name: !GetAtt MailIdentity.DkimDNSTokenName1, Type: CNAME, TTL: "1800", ResourceRecords: [!GetAtt MailIdentity.DkimDNSTokenValue1] }
+  Dkim2:
+    Type: AWS::Route53::RecordSet
+    Properties: { HostedZoneId: !Ref HostedZone, Name: !GetAtt MailIdentity.DkimDNSTokenName2, Type: CNAME, TTL: "1800", ResourceRecords: [!GetAtt MailIdentity.DkimDNSTokenValue2] }
+  Dkim3:
+    Type: AWS::Route53::RecordSet
+    Properties: { HostedZoneId: !Ref HostedZone, Name: !GetAtt MailIdentity.DkimDNSTokenName3, Type: CNAME, TTL: "1800", ResourceRecords: [!GetAtt MailIdentity.DkimDNSTokenValue3] }
+
+  # Only SES may send as molpecer.es; nothing receives mail for it.
+  Spf:
+    Type: AWS::Route53::RecordSet
+    Properties: { HostedZoneId: !Ref HostedZone, Name: molpecer.es., Type: TXT, TTL: "3600", ResourceRecords: ['"v=spf1 include:amazonses.com -all"'] }
+  Dmarc:
+    Type: AWS::Route53::RecordSet
+    Properties: { HostedZoneId: !Ref HostedZone, Name: _dmarc.molpecer.es., Type: TXT, TTL: "3600", ResourceRecords: [!Sub '"v=DMARC1; p=quarantine; rua=mailto:${ReportEmail}"'] }
+  NullMx:
+    Type: AWS::Route53::RecordSet
+    Properties: { HostedZoneId: !Ref HostedZone, Name: molpecer.es., Type: MX, TTL: "3600", ResourceRecords: ["0 ."] }
+
+Outputs:
+  HostedZoneId:
+    Value: !Ref HostedZone
