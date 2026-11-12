@@ -1,8 +1,8 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
   molpecer.es portfolio: the certificate, the bucket, its public-read policy,
-  the CloudFront distribution and the AAAA records, in the shared zone owned by
-  the molpecer-dns stack.
+  the CloudFront distribution and its A and AAAA records, in the shared zone
+  owned by the molpecer-domain stack.
 
 Parameters:
   HostedZoneId:
@@ -142,12 +142,26 @@ Resources:
           };
         }
 
+  ApexA:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: molpecer.es.
+      Type: A
+      AliasTarget: { DNSName: !GetAtt Distribution.DomainName, HostedZoneId: Z2FDTNDATAQYW2, EvaluateTargetHealth: false }
   ApexAAAA:
     Type: AWS::Route53::RecordSet
     Properties:
       HostedZoneId: !Ref HostedZoneId
       Name: molpecer.es.
       Type: AAAA
+      AliasTarget: { DNSName: !GetAtt Distribution.DomainName, HostedZoneId: Z2FDTNDATAQYW2, EvaluateTargetHealth: false }
+  WwwA:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: www.molpecer.es.
+      Type: A
       AliasTarget: { DNSName: !GetAtt Distribution.DomainName, HostedZoneId: Z2FDTNDATAQYW2, EvaluateTargetHealth: false }
   WwwAAAA:
     Type: AWS::Route53::RecordSet

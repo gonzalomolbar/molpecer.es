@@ -5,10 +5,10 @@ Three CloudFormation stacks in account `767105089665`, region `us-east-1`: one t
 | stack | folder | what | deployed by |
 |---|---|---|---|
 | `molpecer-domain` | `infra/domain/` | the `molpecer.es` hosted zone and what belongs to the domain rather than a site: the mail identity with DKIM, SPF, DMARC, null MX | the repo, on push to `main` (zone imported by hand once) |
-| `molpecer-portfolio` | `infra/portfolio/` | the portfolio certificate, the bucket, its policy, the CloudFront distribution with its www-redirect function, the AAAA records | the repo, on push to `main` |
+| `molpecer-portfolio` | `infra/portfolio/` | the portfolio certificate, the bucket, its policy, the CloudFront distribution with its www-redirect function, the A and AAAA records for the apex and www | the repo, on push to `main` |
 | `molpecer-ci` | `infra/ci/` | the GitHub OIDC provider and every role the workflows assume | you, by hand |
 
-Outside the stacks: the domain registration (Route 53 Registrar), the two A alias records for `molpecer.es` and `www.molpecer.es` (created before the stack; CloudFormation cannot import simple records, and recreating them would risk DNS downtime), the account-level billing alarm with its `NotifyMe` topic, and the `monthly-10usd` budget. The zone's NS and SOA records come with the zone.
+Outside the stacks: the domain registration (Route 53 Registrar), the certificate validation CNAME that ACM writes into the zone (not a stack resource; it must stay for renewals), the account-level billing alarm with its `NotifyMe` topic, and the `monthly-10usd` budget. The zone's NS and SOA records come with the zone.
 
 ## How a change reaches production
 
