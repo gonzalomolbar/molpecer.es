@@ -58,10 +58,9 @@ def create_post(req):
     if body is None:
         return error(400, "bad_json")
     kind = body.get("kind")
-    month = body.get("month")
     name = str(body.get("name") or "").strip()[: config.LIMITS["max_name_chars"]]
     text = str(body.get("text") or "").strip()[: config.LIMITS["max_text_chars"]]
-    if kind not in config.KINDS or month not in config.MONTHS:
+    if kind not in config.KINDS:
         return error(400, "bad_fields")
     upload = body.get("upload")
     if not isinstance(upload, dict):
@@ -97,7 +96,7 @@ def create_post(req):
     post_id = store.ulid()
     now = store.now_iso()
     post = {
-        "pk": f"POST#{post_id}", "sk": "POST", "id": post_id, "kind": kind, "month": month,
+        "pk": f"POST#{post_id}", "sk": "POST", "id": post_id, "kind": kind,
         "name": name, "text": text, "created": now, "status": "awaiting_upload",
         "visitor": req.visitor(), "actions": [],
         "ttl": int(time.time()) + 2 * 86400,  # expires if never uploaded; the processor removes it
@@ -175,15 +174,14 @@ def wall_me(req, who):
 
 def wall_posts(req, who):
     q = req.query
-    month = q.get("month") if q.get("month") in config.MONTHS else None
     kind = q.get("kind") if q.get("kind") in config.KINDS else None
     status = q.get("status") if q.get("status") in ("awaiting_upload", "processing", "done", "failed", "deleted") else None
-    items, cursor = store.list_posts(month=month, kind=kind, status=status, cursor=q.get("cursor"))
+    items, cursor = store.list_posts(kind=kind, status=status, cursor=q.get("cursor"))
     return respond(200, {"posts": [_wall_item(p) for p in items], "cursor": cursor})
 
 
 def _wall_item(p):
-    item = {k: p.get(k) for k in ("id", "kind", "month", "name", "text", "created", "status", "code", "visitor", "actions", "width", "height")}
+    item = {k: p.get(k) for k in ("id", "kind", "name", "text", "created", "status", "code", "visitor", "actions", "width", "height")}
     if p.get("status") == "done":
         item["full"] = _signed_get(f"media/{p['id']}/full.webp")
         item["thumb"] = _signed_get(f"media/{p['id']}/thumb.webp")

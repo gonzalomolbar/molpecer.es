@@ -3,8 +3,6 @@ document.addEventListener('DOMContentLoaded', function () {
   var $ = function (id) { return document.getElementById(id); };
   var me = null, cursor = null, items = [];
 
-  window.MONTHS.forEach(function (m, i) { var o = document.createElement('option'); o.value = m; o.textContent = window.I18N.en.months[i]; $('f-month').appendChild(o); });
-
   // --- login ---
   async function whoami() {
     var r = await window.api('GET', '/api/wall/me');
@@ -50,7 +48,6 @@ document.addEventListener('DOMContentLoaded', function () {
   async function load(reset) {
     if (reset) { cursor = null; items = []; $('posts').innerHTML = ''; }
     var q = new URLSearchParams();
-    if ($('f-month').value) q.set('month', $('f-month').value);
     if ($('f-kind').value) q.set('kind', $('f-kind').value);
     if ($('f-status').value) q.set('status', $('f-status').value);
     if (cursor) q.set('cursor', cursor);
@@ -65,7 +62,7 @@ document.addEventListener('DOMContentLoaded', function () {
     $('more').classList.toggle('hidden', !cursor);
     $('count').textContent = items.length + ' shown';
   }
-  ['f-month', 'f-kind', 'f-status'].forEach(function (id) { $(id).addEventListener('change', function () { load(true); }); });
+  ['f-kind', 'f-status'].forEach(function (id) { $(id).addEventListener('change', function () { load(true); }); });
   $('reload').addEventListener('click', function () { load(true); });
   $('more').addEventListener('click', function () { load(false); });
 
@@ -82,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     var body = el('div');
     var meta = el('div', 'meta');
-    [p.month, p.kind, p.status, p.code, p.created ? p.created.replace('T', ' ').replace('Z', '') : ''].forEach(function (x) { if (x) meta.appendChild(el('span', 'tag', x)); });
+    [p.kind, p.status, p.code, p.created ? p.created.replace('T', ' ').replace('Z', '') : ''].forEach(function (x) { if (x) meta.appendChild(el('span', 'tag', x)); });
     body.appendChild(meta);
     body.appendChild(el('div', '', p.name || '(no name)'));
     if (p.text) body.appendChild(el('div', 'text', p.text));

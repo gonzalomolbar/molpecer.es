@@ -176,11 +176,9 @@ def transition(post_id, from_status, to_status, **fields):
         raise
 
 
-def list_posts(month=None, kind=None, status=None, limit=50, cursor=None):
+def list_posts(kind=None, status=None, limit=50, cursor=None):
     """Newest first. A scan is fine at a few thousand items; the wall is admin-only."""
     f = Attr("sk").eq("POST")
-    if month:
-        f = f & Attr("month").eq(month)
     if kind:
         f = f & Attr("kind").eq(kind)
     if status:

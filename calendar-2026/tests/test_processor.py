@@ -43,7 +43,7 @@ def pipeline(aws, monkeypatch):
     sent = []
     monkeypatch.setattr(mail, "notify", lambda post: sent.append(post["pk"]))
     post_id = store.ulid()
-    post = {"pk": f"POST#{post_id}", "sk": "POST", "id": post_id, "kind": "photo", "month": "march", "name": "Ana",
+    post = {"pk": f"POST#{post_id}", "sk": "POST", "id": post_id, "kind": "photo", "name": "Ana",
             "created": store.now_iso(), "status": "awaiting_upload", "visitor": {}, "ttl": 1}
     store.create_post(post, "Ana")
     s3 = boto3.client("s3", region_name="us-east-1")
@@ -104,6 +104,6 @@ def test_mail_subject_strips_newlines(aws, monkeypatch):
     class Fake:
         def send_email(self, **kw): captured.update(kw)
     monkeypatch.setattr(mail, "_ses", Fake())
-    mail.notify({"pk": "POST#01ABC", "month": "march", "kind": "photo", "name": "Eve\r\nBcc: x@y", "text": "hi", "code": "EVE-1234", "visitor": {"city": "Madrid", "country": "ES", "device": "mobile", "ip": "1.2.3.4"}})
+    mail.notify({"pk": "POST#01ABC", "kind": "photo", "name": "Eve\r\nBcc: x@y", "text": "hi", "code": "EVE-1234", "visitor": {"city": "Madrid", "country": "ES", "device": "mobile", "ip": "1.2.3.4"}})
     assert "\n" not in captured["Content"]["Simple"]["Subject"]["Data"]
     assert captured["FromEmailAddress"] == "Calendar 2026 <calendar+2026@molpecer.es>"

@@ -3,19 +3,6 @@ document.addEventListener('DOMContentLoaded', function () {
   var photoBlob = null;
   var $ = function (id) { return document.getElementById(id); };
 
-  // month picker
-  var sel = $('month');
-  function fillMonths() {
-    var current = sel.value;
-    sel.innerHTML = '';
-    window.MONTHS.forEach(function (m, i) {
-      var o = document.createElement('option'); o.value = m; o.textContent = window.monthName(i); sel.appendChild(o);
-    });
-    sel.value = current || window.MONTHS[window.monthFromQuery()];
-  }
-  fillMonths();
-  document.addEventListener('langchange', function () { fillMonths(); });
-
   // tabs
   document.querySelectorAll('[role=tab]').forEach(function (b) {
     b.addEventListener('click', function () {
@@ -61,7 +48,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (kind === 'doodle' && !touched) return status(window.t('err_empty'), true);
     $('send').disabled = true; status(window.t('sending'));
     var blob = kind === 'photo' ? photoBlob : await new Promise(function (r) { canvas.toBlob(r, 'image/png'); });
-    var body = { kind: kind, month: sel.value, name: $('name').value.trim(), text: text, pow: await window.proofOfWork(), website: $('website').value };
+    var body = { kind: kind, name: $('name').value.trim(), text: text, pow: await window.proofOfWork(), website: $('website').value };
     body.upload = { size: blob.size, type: blob.type || 'image/jpeg' };
     var r = await window.api('POST', '/api/posts', body);
     if (r.status !== 201) {

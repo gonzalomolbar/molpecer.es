@@ -20,7 +20,6 @@ def notify(post):
     v = post.get("visitor", {})
     where = ", ".join(x for x in (v.get("city"), v.get("country")) if x) or "unknown place"
     lines = [
-        f"Month: {post.get('month')}",
         f"Kind: {post.get('kind')}",
         f"Name: {post.get('name') or '(none)'}",
         f"Code: {post.get('code')}",
@@ -35,7 +34,7 @@ def notify(post):
         Destination={"ToAddresses": [config.NOTIFY_EMAIL]},
         ReplyToAddresses=[config.NOTIFY_EMAIL],
         Content={"Simple": {
-            "Subject": {"Data": f"Calendar 2026 ({post.get('month')}): {post.get('kind')} · {who}", "Charset": "UTF-8"},
+            "Subject": {"Data": f"Calendar 2026: {post.get('kind')} · {who}", "Charset": "UTF-8"},
             "Body": {"Text": {"Data": "\n".join(lines), "Charset": "UTF-8"}},
         }},
     )

@@ -16,21 +16,6 @@
     return { status: res.status, data: data };
   };
 
-  // The year printed on the calendar; the month picker preselects the current month only during it.
-  window.CALENDAR_YEAR = 2027;
-  window.monthFromQuery = function () {
-    var m = new URLSearchParams(location.search).get('m');
-    if (m) {
-      m = m.toLowerCase();
-      var i = window.MONTHS.indexOf(m);
-      if (i >= 0) return i;
-      var n = parseInt(m, 10);
-      if (n >= 1 && n <= 12) return n - 1;
-    }
-    var now = new Date();
-    if (now.getFullYear() === window.CALENDAR_YEAR) return now.getMonth();
-    return 0;
-  };
   window.monthName = function (i) { return window.t('months')[i]; };
 
   // Shrink a picked file in the browser: max 2000 px, JPEG. Falls back to the original when decoding fails.

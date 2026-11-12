@@ -39,7 +39,7 @@ UP = {"size": 1234, "type": "image/jpeg"}
 
 
 def test_photo_creates_code_and_cookie(app):
-    status, body, cookies = call(app, "POST", "/api/posts", {"kind": "photo", "month": "march", "name": "Luis García", "text": "hola", "pow": "good", "upload": UP})
+    status, body, cookies = call(app, "POST", "/api/posts", {"kind": "photo", "name": "Luis García", "text": "hola", "pow": "good", "upload": UP})
     assert status == 201
     assert body["code"].startswith("LUISGA-") and len(body["code"]) == 11
     assert cookies and cookies[0].startswith("calendar2026_s=v.") and "HttpOnly" in cookies[0]
@@ -49,7 +49,7 @@ def test_photo_creates_code_and_cookie(app):
 
 
 def test_photo_returns_presigned_post(app):
-    status, body, _ = call(app, "POST", "/api/posts", {"kind": "photo", "month": "may", "pow": "good", "upload": {"size": 1234, "type": "image/jpeg"}})
+    status, body, _ = call(app, "POST", "/api/posts", {"kind": "photo", "pow": "good", "upload": {"size": 1234, "type": "image/jpeg"}})
     assert status == 201
     assert body["code"].startswith("CAL-")
     up = body["upload"]
@@ -59,19 +59,19 @@ def test_photo_returns_presigned_post(app):
 
 
 def test_validation(app):
-    assert call(app, "POST", "/api/posts", {"kind": "note", "month": "march", "text": "x", "pow": "good", "upload": UP})[1]["error"] == "bad_fields"
-    assert call(app, "POST", "/api/posts", {"kind": "doodle", "month": "march", "pow": "good"})[1]["error"] == "missing_upload"
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "month": "nope", "pow": "good"})[1]["error"] == "bad_fields"
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "month": "march", "pow": "good", "upload": {"size": 99999999, "type": "image/jpeg"}})[0] == 413
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "month": "march", "pow": "good", "upload": {"size": 10, "type": "text/html"}})[1]["error"] == "bad_type"
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "month": "march", "text": "x", "pow": "bad", "upload": UP})[1]["error"] == "bot_check"
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "month": "march", "text": "x", "pow": "good", "upload": UP}, origin=False)[1]["error"] == "csrf"
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "month": "march", "text": "x", "pow": "good", "upload": UP}, origin=False, headers={"sec-fetch-site": "same-origin"})[0] == 201
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "month": "march", "text": "x", "pow": "good", "upload": UP}, headers={"origin": "https://evil.example"})[1]["error"] == "csrf"
+    assert call(app, "POST", "/api/posts", {"kind": "note", "text": "x", "pow": "good", "upload": UP})[1]["error"] == "bad_fields"
+    assert call(app, "POST", "/api/posts", {"kind": "doodle", "pow": "good"})[1]["error"] == "missing_upload"
+    assert call(app, "POST", "/api/posts", {"kind": "nope", "pow": "good", "upload": UP})[1]["error"] == "bad_fields"
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "pow": "good", "upload": {"size": 99999999, "type": "image/jpeg"}})[0] == 413
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "pow": "good", "upload": {"size": 10, "type": "text/html"}})[1]["error"] == "bad_type"
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "text": "x", "pow": "bad", "upload": UP})[1]["error"] == "bot_check"
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "text": "x", "pow": "good", "upload": UP}, origin=False)[1]["error"] == "csrf"
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "text": "x", "pow": "good", "upload": UP}, origin=False, headers={"sec-fetch-site": "same-origin"})[0] == 201
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "text": "x", "pow": "good", "upload": UP}, headers={"origin": "https://evil.example"})[1]["error"] == "csrf"
 
 
 def test_limits_per_net_and_global(app):
-    body = {"kind": "photo", "month": "march", "text": "x", "pow": "good", "upload": UP}
+    body = {"kind": "photo", "text": "x", "pow": "good", "upload": UP}
     for _ in range(3):
         assert call(app, "POST", "/api/posts", body)[0] == 201
     assert call(app, "POST", "/api/posts", body)[1]["error"] == "limit_posts"
@@ -86,11 +86,11 @@ def test_limits_per_net_and_global(app):
 def test_ban_blocks(app):
     from shared import store
     store.ban("203.0.113.9", "toribios")
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "month": "march", "text": "x", "pow": "good", "upload": UP})[1]["error"] == "banned"
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "text": "x", "pow": "good", "upload": UP})[1]["error"] == "banned"
 
 
 def test_unlock(app):
-    _, body, _ = call(app, "POST", "/api/posts", {"kind": "photo", "month": "march", "name": "Ana", "text": "x", "pow": "good", "upload": UP})
+    _, body, _ = call(app, "POST", "/api/posts", {"kind": "photo", "name": "Ana", "text": "x", "pow": "good", "upload": UP})
     status, _, cookies = call(app, "POST", "/api/unlock", {"code": body["code"].lower().replace("-", " - ")})
     assert status == 200 and cookies[0].startswith(f"calendar2026_s=v.{body['code']}.")
     assert call(app, "POST", "/api/unlock", {"code": "ANA-ZZZZ"})[1]["error"] == "unknown_code"
@@ -131,15 +131,15 @@ def test_admin_login_and_wall(app):
     assert call(app, "GET", "/api/wall/me", cookies={"calendar2026_a": tampered})[0] == 401
     assert call(app, "GET", "/api/wall/me", cookies={"calendar2026_a": jar["calendar2026_s"]})[0] == 401, "preview cookie is not admin"
 
-    _, p1, _ = call(app, "POST", "/api/posts", {"kind": "photo", "month": "march", "name": "Ana", "text": "hola", "pow": "good", "upload": UP})
-    _, p2, _ = call(app, "POST", "/api/posts", {"kind": "doodle", "month": "april", "name": "Bo", "text": "hey", "pow": "good", "upload": UP})
+    _, p1, _ = call(app, "POST", "/api/posts", {"kind": "photo", "name": "Ana", "text": "hola", "pow": "good", "upload": UP})
+    _, p2, _ = call(app, "POST", "/api/posts", {"kind": "doodle", "name": "Bo", "text": "hey", "pow": "good", "upload": UP})
     from shared import store as st
     st.update_post(p2["id"], status="done", width=1600, height=1067, bytes=224090)  # numbers come back as Decimal
     status, body, _ = call(app, "GET", "/api/wall/posts", cookies=jar)
     assert status == 200 and [p["name"] for p in body["posts"]] == ["Bo", "Ana"]
     assert body["posts"][0]["width"] == 1600 and body["posts"][0]["thumb"].startswith("https://")
     assert body["posts"][0]["visitor"]["ip"] == "203.0.113.9"
-    ev = event("GET", "/api/wall/posts", cookies=jar); ev["queryStringParameters"] = {"month": "march"}
+    ev = event("GET", "/api/wall/posts", cookies=jar); ev["queryStringParameters"] = {"kind": "photo"}
     assert [p["name"] for p in json.loads(app.handler(ev, None)["body"])["posts"]] == ["Ana"]
 
     status, body, _ = call(app, "GET", f"/api/wall/posts/{p2['id']}", cookies=jar)
@@ -196,8 +196,8 @@ def test_proof_of_work_real(aws, monkeypatch):
 
 
 def test_honeypot_fakes_success(app):
-    status, body, cookies = call(app, "POST", "/api/posts", {"kind": "photo", "month": "march", "name": "Bot", "text": "buy", "pow": "good", "upload": UP, "website": "http://spam"})
+    status, body, cookies = call(app, "POST", "/api/posts", {"kind": "photo", "name": "Bot", "text": "buy", "pow": "good", "upload": UP, "website": "http://spam"})
     assert status == 201 and body["code"].startswith("BOT-") and cookies == [] and "upload" not in body
     from shared import store
     assert store.post_for_code(body["code"]) is None
-    assert call(app, "POST", "/api/posts", {"kind": "photo", "month": "march", "text": "x", "pow": "good", "upload": UP}, headers={"user-agent": ""})[2] == []
+    assert call(app, "POST", "/api/posts", {"kind": "photo", "text": "x", "pow": "good", "upload": UP}, headers={"user-agent": ""})[2] == []
