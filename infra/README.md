@@ -48,8 +48,8 @@ Termination protection: the workflows turn it on for their stacks after every ap
 | `molpecer-portfolio-infra` | `portfolio-infra.yml`, Environment `portfolio-infra` | execute change sets on `molpecer-portfolio`; update the one distribution and its `molpecer-portfolio-*` functions; change settings of the one bucket; request certificates; write only `molpecer.es`, `www.molpecer.es` and validation records in the zone; denied zone creation and deletion |
 | `calendar-2026-deploy` | `calendar-2026.yml`, Environment `calendar-2026` | read, write, delete page objects in the calendar web bucket (never `months/`); invalidate |
 | `calendar-2026-infra-plan` | `calendar-2026-infra.yml`, pull requests and `main` | build, package, create and read change sets on `calendar-2026` |
-| `calendar-2026-switch` | `calendar-2026-switch.yml` (manual), Environment `calendar-2026-switch` | read and write the edge store's `mode`, set the two functions' concurrency, read status |
-| `calendar-2026-infra` | `calendar-2026-infra.yml`, Environment `calendar-2026-infra` | execute change sets on `calendar-2026`; create resources named `calendar-2026*`; write only the site's own names and the DKIM names in the zone; create IAM roles only under path `/calendar-2026/` and only with the `calendar-2026-boundary`; explicitly denied on the portfolio distribution and on alias moves |
+| `calendar-2026-switch` | `calendar-2026-switch.yml` (manual), Environment `calendar-2026-switch` | read and write the edge store's `mode`, set the two functions' concurrency, enable or disable the calendar distribution (never the portfolio's), read status |
+| `calendar-2026-infra` | `calendar-2026-infra.yml`, Environment `calendar-2026-infra` | execute change sets on `calendar-2026`; create resources named `calendar-2026*`; write only the site's own names and the DKIM names in the zone; manage only IAM roles named `calendar-2026-*` (never the CI roles, which are explicitly denied) and create them only with the `calendar-2026-boundary`; explicitly denied on the portfolio distribution and on alias moves |
 
 GitHub holds no AWS secrets. Actions variables: `AWS_ROLE_ARN` on each of the six Environments (`domain-infra`, `portfolio`, `portfolio-infra`, `calendar-2026`, `calendar-2026-infra`, `calendar-2026-switch`, all restricted to `main`); on the repository `DOMAIN_PLAN_ROLE_ARN`, `PORTFOLIO_PLAN_ROLE_ARN`, `CALENDAR_PLAN_ROLE_ARN` and `AWS_ACCOUNT_ID`.
 
@@ -66,6 +66,6 @@ GitHub holds no AWS secrets. Actions variables: `AWS_ROLE_ARN` on each of the si
 | change the calendar stack | edit `infra/calendar-2026/template.yaml`, open a pull request, read the plan, merge |
 | change the calendar code (Lambdas, edge function) | edit `calendar-2026/src/` or `calendar-2026/edge/`, open a pull request, read the plan, merge |
 | publish or update the month photos | `python3 calendar-2026/tools/months.py <folder>` (needs `pip install Pillow pillow-heif boto3`) |
-| pause, close, reopen the calendar | `calendar-2026/tools/switch.sh pause|close|open|off|status`, or Actions, "Calendar 2026 switch", Run workflow (works from the GitHub app) |
+| pause, close, reopen the calendar | `calendar-2026/tools/switch.sh pause|close|open|off|disable|enable|status`, or Actions, "Calendar 2026 switch", Run workflow (works from the GitHub app) |
 | rotate an admin code | `python3 calendar-2026/tools/setup-secrets.py admin <name>` |
 | set up the calendar secrets the first time | `python3 calendar-2026/tools/setup-secrets.py init` (after the first deploy; prints both admin codes once) |

@@ -16,13 +16,8 @@
     return { status: res.status, data: data };
   };
 
-  // The calendar year and the "one month early" rule, mirrored from the edge function.
+  // The year printed on the calendar; the month picker preselects the current month only during it.
   window.CALENDAR_YEAR = 2027;
-  window.OPENS = [
-    Date.UTC(2026, 10, 30, 23), Date.UTC(2026, 11, 31, 23), Date.UTC(2027, 0, 31, 23), Date.UTC(2027, 1, 28, 23),
-    Date.UTC(2027, 2, 31, 22), Date.UTC(2027, 3, 30, 22), Date.UTC(2027, 4, 31, 22), Date.UTC(2027, 5, 30, 22),
-    Date.UTC(2027, 6, 31, 22), Date.UTC(2027, 7, 31, 22), Date.UTC(2027, 8, 30, 22), Date.UTC(2027, 9, 31, 23)
-  ];
   window.monthFromQuery = function () {
     var m = new URLSearchParams(location.search).get('m');
     if (m) {

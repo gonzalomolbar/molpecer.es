@@ -1,5 +1,5 @@
 // One page for the twelve months: reads the month from the path, asks the edge for the data,
-// and shows "not yet", the code form, or the photo grid.
+// and shows the code form or the photo grid.
 document.addEventListener('DOMContentLoaded', function () {
   var $ = function (id) { return document.getElementById(id); };
   var month = location.pathname.replace(/^\/|\/$/g, '').toLowerCase();
@@ -17,24 +17,9 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
   heading();
-  document.addEventListener('langchange', function () { heading(); if (opensAt) showNotYet(opensAt); });
+  document.addEventListener('langchange', heading);
 
-  var opensAt = null, timer = null;
-  function show(id) { ['not-yet', 'locked', 'open'].forEach(function (x) { $(x).classList.toggle('hidden', x !== id); }); }
-
-  function showNotYet(iso) {
-    opensAt = iso;
-    var when = new Date(iso);
-    $('opens-date').textContent = when.toLocaleDateString(window.lang === 'es' ? 'es-ES' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-    function tick() {
-      var ms = when - Date.now();
-      if (ms <= 0) { clearInterval(timer); load(); return; }
-      var d = Math.floor(ms / 86400000), h = Math.floor(ms % 86400000 / 3600000), m = Math.floor(ms % 3600000 / 60000);
-      $('countdown').textContent = d + ' ' + window.t('countdown_days') + ' ' + String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
-    }
-    clearInterval(timer); tick(); timer = setInterval(tick, 30000);
-    show('not-yet');
-  }
+  function show(id) { ['locked', 'open'].forEach(function (x) { $(x).classList.toggle('hidden', x !== id); }); }
 
   function render(list) {
     var grid = $('grid'); grid.innerHTML = '';
@@ -56,7 +41,6 @@ document.addEventListener('DOMContentLoaded', function () {
     var data = {};
     try { data = await res.json(); } catch (e) {}
     if (res.status === 200) return render(data.photos || []);
-    if (res.status === 423 && data.error === 'not_yet') return showNotYet(data.opens);
     if (res.status === 503) { $('status').textContent = window.t(data.error === 'paused' ? 'err_paused' : 'err_closed'); show('locked'); return; }
     show('locked');
   }

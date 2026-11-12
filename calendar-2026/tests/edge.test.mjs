@@ -60,25 +60,14 @@ r = await handler(req('/assets/app.js')); assert.equal(r.uri, '/assets/app.js');
 r = await handler(req('/march')); assert.equal(r.uri, '/month.html');
 r = await handler(req('/march/')); assert.equal(r.uri, '/month.html');
 
-// time lock: march opens 1 Feb 2027 00:00 Madrid = 2027-01-31T23:00Z
-at('2027-01-31T22:59:59Z');
-r = await handler(req('/march/index.json', { cookies: { calendar2026_s: visitor } }));
-assert.equal(r.statusCode, 423); assert.equal(json(r).error, 'not_yet'); assert.equal(json(r).opens, '2027-01-31T23:00:00.000Z');
-at('2027-01-31T23:00:00Z');
+// month data: any valid visitor cookie opens any month
+at('2026-11-12T12:00:00Z');
 r = await handler(req('/march/index.json')); assert.equal(r.statusCode, 423); assert.equal(json(r).error, 'locked');
 r = await handler(req('/march/index.json', { cookies: { calendar2026_s: visitor } })); assert.equal(r.uri, '/months/march/index.json');
 r = await handler(req('/march/p/0123456789ab_t.webp', { cookies: { calendar2026_s: visitor } })); assert.equal(r.uri, '/months/march/p/0123456789ab_t.webp');
-r = await handler(req('/april/index.json', { cookies: { calendar2026_s: visitor } })); assert.equal(json(r).error, 'not_yet', 'april not open until 1 March');
-// january opens 1 Dec 2026 00:00 Madrid, december opens 1 Nov 2027 (CET again)
-at('2026-11-30T23:00:00Z'); r = await handler(req('/january/index.json', { cookies: { calendar2026_s: visitor } })); assert.equal(r.uri, '/months/january/index.json');
-at('2027-10-31T22:59:59Z'); r = await handler(req('/december/index.json', { cookies: { calendar2026_s: visitor } })); assert.equal(json(r).error, 'not_yet');
-at('2027-10-31T23:00:00Z'); r = await handler(req('/december/index.json', { cookies: { calendar2026_s: visitor } })); assert.equal(r.uri, '/months/december/index.json');
-// may opens 1 April 2027 00:00 CEST = 2027-03-31T22:00Z
-at('2027-03-31T21:59:59Z'); r = await handler(req('/may/index.json', { cookies: { calendar2026_s: visitor } })); assert.equal(json(r).error, 'not_yet');
-at('2027-03-31T22:00:00Z'); r = await handler(req('/may/index.json', { cookies: { calendar2026_s: visitor } })); assert.equal(r.uri, '/months/may/index.json');
+r = await handler(req('/december/index.json', { cookies: { calendar2026_s: visitor } })); assert.equal(r.uri, '/months/december/index.json', 'no time lock');
 
 // bad cookies
-at('2027-06-01T00:00:00Z');
 r = await handler(req('/march/index.json', { cookies: { calendar2026_s: sign('v', 'LUIS-7K2P', FUTURE, 'other') } })); assert.equal(r.statusCode, 423, 'wrong secret');
 r = await handler(req('/march/index.json', { cookies: { calendar2026_s: sign('v', 'LUIS-7K2P', 1000) } })); assert.equal(r.statusCode, 423, 'expired');
 r = await handler(req('/march/index.json', { cookies: { calendar2026_s: visitor.slice(0, -1) + '0' } })); assert.equal(r.statusCode, 423, 'tampered sig');
@@ -89,10 +78,8 @@ delete store.secret;
 r = await handler(req('/march/index.json', { cookies: { calendar2026_s: visitor } })); assert.equal(r.statusCode, 423, 'no secret configured means locked');
 store.secret = SECRET;
 
-// admin preview bypasses the time lock
-at('2026-06-01T00:00:00Z');
+// admin cookie kind p is accepted too
 r = await handler(req('/december/index.json', { cookies: { calendar2026_s: preview } })); assert.equal(r.uri, '/months/december/index.json');
-r = await handler(req('/december/index.json', { cookies: { calendar2026_s: visitor } })); assert.equal(json(r).error, 'not_yet');
 
 Date.now = realNow;
 console.log('edge tests ok');

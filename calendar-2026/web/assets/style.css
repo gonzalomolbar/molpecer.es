@@ -45,7 +45,6 @@ canvas.doodle { width: 100%; aspect-ratio: 1; background: #fff; border-radius: 1
 .months { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 12px; }
 .months a { display: block; text-align: center; padding: 10px 4px; border: 1px solid var(--line); border-radius: 10px; color: var(--text); text-decoration: none; font-size: 14px; }
 .months a[aria-current="page"] { border-color: var(--accent); }
-.countdown { font-size: 28px; font-weight: 700; text-align: center; margin: 10px 0; }
 .post { display: grid; grid-template-columns: 96px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
 .post img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; background: var(--bg); }
 .post .note { width: 96px; height: 96px; border-radius: 8px; background: var(--bg); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12px; }

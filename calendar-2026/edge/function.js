@@ -1,5 +1,5 @@
 // CloudFront Function (runtime cloudfront-js-2.0), viewer-request on both behaviors.
-// Gate for calendar-2026: path allow-list, site mode, month time lock, signed visitor cookie.
+// Gate for calendar-2026: path allow-list, site mode, signed visitor cookie.
 // Key-value store keys: mode (open|paused|closed), secret (HMAC key for the visitor cookie).
 import cf from 'cloudfront';
 import crypto from 'crypto';
@@ -8,15 +8,6 @@ var kvs = cf.kvs();
 
 var MONTHS = ['january', 'february', 'march', 'april', 'may', 'june',
   'july', 'august', 'september', 'october', 'november', 'december'];
-
-// Each month opens one month early: first instant of the previous month, Europe/Madrid, as UTC ms.
-// CET until 2027-03-28, CEST until 2027-10-31.
-var OPENS = {
-  january: Date.UTC(2026, 10, 30, 23), february: Date.UTC(2026, 11, 31, 23), march: Date.UTC(2027, 0, 31, 23),
-  april: Date.UTC(2027, 1, 28, 23), may: Date.UTC(2027, 2, 31, 22), june: Date.UTC(2027, 3, 30, 22),
-  july: Date.UTC(2027, 4, 31, 22), august: Date.UTC(2027, 5, 30, 22), september: Date.UTC(2027, 6, 31, 22),
-  october: Date.UTC(2027, 7, 31, 22), november: Date.UTC(2027, 8, 30, 22), december: Date.UTC(2027, 9, 31, 23)
-};
 
 var PAGES = { '/': '/index.html', '/index.html': '/index.html', '/month.html': '/month.html',
   '/wall': '/wall/index.html', '/wall/': '/wall/index.html', '/wall/index.html': '/wall/index.html', '/404.html': '/404.html' };
@@ -44,7 +35,7 @@ async function kv(key) {
   try { return await kvs.get(key); } catch (e) { return ''; }
 }
 
-// calendar2026_s = <kind>.<subject>.<expiry>.<sig>; kind v (visitor code) or p (admin preview).
+// calendar2026_s = <kind>.<subject>.<expiry>.<sig>; kind v (visitor code) or p (admin).
 // sig = first 32 hex chars of HMAC-SHA256("kind.subject.expiry", secret). Returns kind or ''.
 async function sessionKind(request, secret) {
   var parts = cookie(request, 'calendar2026_s').split('.');
@@ -92,11 +83,7 @@ async function handler(event) {
 
   if (rest === '/index.json' || /^\/p\/[0-9a-f]{12}(_t)?\.webp$/.test(rest)) {
     var secret = await kv('secret');
-    var kind = secret ? await sessionKind(request, secret) : '';
-    if (kind !== 'p' && Date.now() < OPENS[name]) {
-      return deny(423, 'not_yet', { opens: new Date(OPENS[name]).toISOString() });
-    }
-    if (!kind) { return deny(423, 'locked', null); }
+    if (!secret || !(await sessionKind(request, secret))) { return deny(423, 'locked', null); }
     request.uri = '/months/' + name + rest;
     return request;
   }

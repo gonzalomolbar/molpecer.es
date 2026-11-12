@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Kill switch, by hand with the owner's profile. Takes effect in seconds.
-#   tools/switch.sh status | open | pause | close | off | disable
-# The same actions except disable are available as the GitHub workflow "Calendar 2026 switch".
+#   tools/switch.sh status | open | pause | close | off | disable | enable
+# The same actions are available as the GitHub workflow "Calendar 2026 switch".
 #   open    = mode open and functions back to their normal concurrency (api 5, processor 2)
 #   pause   = mode paused: no API calls, pages and month photos keep working
 #   close   = mode closed: one static "closed" page, zero origin traffic
 #   off     = close, then concurrency 0 on api and processor (nothing can execute)
-#   disable = last resort: disable the distribution itself (minutes to apply; stops request charges)
+#   disable = last resort: turn the distribution itself off (minutes to apply; stops request charges)
+#   enable  = turn the distribution back on (minutes), then run "open"
 set -euo pipefail
 ACTION="${1:-status}"
 if [ -z "${GITHUB_ACTIONS:-}" ]; then export AWS_PROFILE="${AWS_PROFILE:-personal}"; fi
@@ -26,6 +27,16 @@ concurrency() {
   echo "concurrency api=$1 processor=$2"
 }
 
+distribution() {
+  local dist cfg etag
+  dist="$(outputs DistributionId)"
+  cfg="$(aws cloudfront get-distribution-config --id "$dist")"
+  etag="$(jq -r .ETag <<<"$cfg")"
+  jq --argjson on "$1" '.DistributionConfig | .Enabled = $on' <<<"$cfg" > "${TMPDIR:-/tmp}/calendar-2026-dist.json"
+  aws cloudfront update-distribution --id "$dist" --if-match "$etag" --distribution-config "file://${TMPDIR:-/tmp}/calendar-2026-dist.json" > /dev/null
+  echo "distribution enabled=$1 (takes a few minutes to apply at every edge)"
+}
+
 case "$ACTION" in
   status)
     echo "mode=$(aws cloudfront-keyvaluestore get-key --kvs-arn "$KVS_ARN" --key mode --query Value --output text 2>/dev/null || echo '(unset)')"
@@ -37,12 +48,7 @@ case "$ACTION" in
   pause) mode_set paused ;;
   close) mode_set closed ;;
   off)   mode_set closed; concurrency 0 0 ;;
-  disable)
-    DIST="$(outputs DistributionId)"
-    aws cloudfront get-distribution-config --id "$DIST" > /tmp/calendar-2026-dist.json
-    ETAG="$(jq -r .ETag /tmp/calendar-2026-dist.json)"
-    jq '.DistributionConfig | .Enabled = false' /tmp/calendar-2026-dist.json > /tmp/calendar-2026-dist-off.json
-    aws cloudfront update-distribution --id "$DIST" --if-match "$ETAG" --distribution-config file:///tmp/calendar-2026-dist-off.json > /dev/null
-    echo "distribution disabling (takes minutes); re-enable by deploying the stack again" ;;
-  *) echo "usage: $0 status|open|pause|close|off|disable"; exit 64 ;;
+  disable) distribution false ;;
+  enable)  distribution true ;;
+  *) echo "usage: $0 status|open|pause|close|off|disable|enable"; exit 64 ;;
 esac

@@ -6,7 +6,8 @@ name: Calendar 2026 switch
 #   pause   no API calls; pages and month photos keep working
 #   close   one static "closed" page, zero origin traffic
 #   off     close, then concurrency 0 on both functions
-# "disable" (the distribution itself) stays a hand action in calendar-2026/tools/switch.sh.
+#   disable turn the distribution itself off (minutes); the only step that also stops per-request charges
+#   enable  turn the distribution back on (minutes), then run "open"
 
 on:
   workflow_dispatch:
@@ -16,7 +17,7 @@ on:
         type: choice
         required: true
         default: status
-        options: [status, open, pause, close, off]
+        options: [status, open, pause, close, "off", disable, enable]
 
 permissions:
   contents: read
@@ -36,4 +37,7 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: us-east-1
       - name: Run
-        run: calendar-2026/tools/switch.sh "${{ inputs.action }}" | tee -a "$GITHUB_STEP_SUMMARY"
+        run: |
+          { calendar-2026/tools/switch.sh "${{ inputs.action }}"
+            if [ "${{ inputs.action }}" != status ]; then echo "--- now:"; calendar-2026/tools/switch.sh status; fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"

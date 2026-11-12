@@ -370,25 +370,32 @@ Resources:
               - Effect: Allow
                 Action: [ses:CreateEmailIdentity, ses:DeleteEmailIdentity, ses:GetEmailIdentity, ses:TagResource, ses:UntagResource, ses:ListTagsForResource]
                 Resource: !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*@*
-              # --- IAM: only roles the stack creates, only under its path, only with the boundary ---
+              # --- IAM: only the roles the stack creates (named calendar-2026-<Function>Role-*), never the CI roles ---
               - Effect: Allow
                 Action: [iam:GetRole, iam:GetRolePolicy, iam:ListRolePolicies, iam:ListAttachedRolePolicies, iam:ListRoleTags]
-                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026/*
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026-*
               - Effect: Allow
                 Action: [iam:CreateRole, iam:PutRolePolicy, iam:AttachRolePolicy]
-                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026/*
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026-*
                 Condition:
                   StringEquals:
                     iam:PermissionsBoundary: !Ref CalendarBoundary
               - Effect: Allow
                 Action: [iam:DeleteRole, iam:DeleteRolePolicy, iam:DetachRolePolicy, iam:UpdateRole, iam:UpdateRoleDescription, iam:UpdateAssumeRolePolicy, iam:TagRole, iam:UntagRole]
-                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026/*
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026-*
               - Effect: Allow
                 Action: iam:PassRole
-                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026/*
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026-*
                 Condition:
                   StringEquals:
                     iam:PassedToService: lambda.amazonaws.com
+              - Effect: Deny
+                Action: iam:*
+                Resource:
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026-deploy
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026-infra
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026-infra-plan
+                  - !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026-switch
               - Effect: Deny
                 Action: [iam:DeleteRolePermissionsBoundary, iam:PutRolePermissionsBoundary]
                 Resource: "*"
@@ -511,7 +518,7 @@ Resources:
                   - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:calendar-2026-api
                   - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:calendar-2026-processor
               - Effect: Allow
-                Action: cloudfront:GetDistribution
+                Action: [cloudfront:GetDistribution, cloudfront:GetDistributionConfig, cloudfront:UpdateDistribution]
                 Resource: "*"
               - Effect: Deny
                 Action: cloudfront:*
