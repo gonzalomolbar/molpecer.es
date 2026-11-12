@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Kill switch, by hand with the owner's profile. Takes effect in seconds.
 #   tools/switch.sh status | open | pause | close | off | disable
+# The same actions except disable are available as the GitHub workflow "Calendar 2026 switch".
 #   open    = mode open and functions back to their normal concurrency (api 5, processor 2)
 #   pause   = mode paused: no API calls, pages and month photos keep working
 #   close   = mode closed: one static "closed" page, zero origin traffic
@@ -8,7 +9,8 @@
 #   disable = last resort: disable the distribution itself (minutes to apply; stops request charges)
 set -euo pipefail
 ACTION="${1:-status}"
-export AWS_PROFILE="${AWS_PROFILE:-personal}" AWS_REGION=us-east-1 AWS_PAGER=""
+if [ -z "${GITHUB_ACTIONS:-}" ]; then export AWS_PROFILE="${AWS_PROFILE:-personal}"; fi
+export AWS_REGION=us-east-1 AWS_PAGER=""
 STACK=calendar-2026
 outputs() { aws cloudformation describe-stacks --stack-name $STACK --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }
 KVS_ARN="$(outputs KeyValueStoreArn)"

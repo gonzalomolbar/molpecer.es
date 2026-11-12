@@ -20,6 +20,7 @@ Every path ends in a push to `main`: a direct push, a merged pull request, or a 
 - **Portfolio infra** (`infra/portfolio/**`): `.github/workflows/portfolio-infra.yml`. On a pull request it lints and prints the change set in the job summary using a role that cannot execute. On `main` it lints, plans again, refuses a change set that would replace the bucket or the distribution, executes, and turns on termination protection. Everything in that stack was created by it except the zone, which lives in `molpecer-dns`.
 - **Calendar pages** (`calendar-2026/web/**`): `.github/workflows/calendar-2026.yml` syncs the folder (never `months/`, which the publish tool owns) and invalidates. No pull-request run.
 - **Calendar infra** (`infra/calendar-2026/**`, plus the edge function, Lambda code and tests under `calendar-2026/`): `.github/workflows/calendar-2026-infra.yml`. The stack was created once by hand; the workflow updates it. Pull requests run the edge tests, the Python tests, lint, and a change set shown in the summary with a role that cannot execute. On `main` it refuses to plan while the kill switch is not `open`, plans again, refuses a change set that would replace the buckets, table, distribution, key-value store or sender identity, executes, and turns on termination protection.
+- **Calendar switch**: `.github/workflows/calendar-2026-switch.yml`, manual only (`workflow_dispatch`), runs `tools/switch.sh` with a role that can only flip the mode and the functions' concurrency.
 - **CI infra** (`infra/ci/**`): lint runs on pull requests, deploy is by hand. See below.
 
 ## The CI stack is deployed by hand
@@ -47,9 +48,10 @@ Termination protection: the workflows turn it on for their stacks after every ap
 | `molpecer-portfolio-infra` | `portfolio-infra.yml`, Environment `portfolio-infra` | execute change sets on `molpecer-portfolio`; update the one distribution and its `molpecer-portfolio-*` functions; change settings of the one bucket; request certificates; write only `molpecer.es`, `www.molpecer.es` and validation records in the zone; denied zone creation and deletion |
 | `calendar-2026-deploy` | `calendar-2026.yml`, Environment `calendar-2026` | read, write, delete page objects in the calendar web bucket (never `months/`); invalidate |
 | `calendar-2026-infra-plan` | `calendar-2026-infra.yml`, pull requests and `main` | build, package, create and read change sets on `calendar-2026` |
+| `calendar-2026-switch` | `calendar-2026-switch.yml` (manual), Environment `calendar-2026-switch` | read and write the edge store's `mode`, set the two functions' concurrency, read status |
 | `calendar-2026-infra` | `calendar-2026-infra.yml`, Environment `calendar-2026-infra` | execute change sets on `calendar-2026`; create resources named `calendar-2026*`; write only the site's own names and the DKIM names in the zone; create IAM roles only under path `/calendar-2026/` and only with the `calendar-2026-boundary`; explicitly denied on the portfolio distribution and on alias moves |
 
-GitHub holds no AWS secrets. Actions variables: `AWS_ROLE_ARN` on each of the five Environments (`domain-infra`, `portfolio`, `portfolio-infra`, `calendar-2026`, `calendar-2026-infra`, all restricted to `main`); on the repository `DOMAIN_PLAN_ROLE_ARN`, `PORTFOLIO_PLAN_ROLE_ARN`, `CALENDAR_PLAN_ROLE_ARN` and `AWS_ACCOUNT_ID`.
+GitHub holds no AWS secrets. Actions variables: `AWS_ROLE_ARN` on each of the six Environments (`domain-infra`, `portfolio`, `portfolio-infra`, `calendar-2026`, `calendar-2026-infra`, `calendar-2026-switch`, all restricted to `main`); on the repository `DOMAIN_PLAN_ROLE_ARN`, `PORTFOLIO_PLAN_ROLE_ARN`, `CALENDAR_PLAN_ROLE_ARN` and `AWS_ACCOUNT_ID`.
 
 ## Day to day
 
@@ -64,6 +66,6 @@ GitHub holds no AWS secrets. Actions variables: `AWS_ROLE_ARN` on each of the fi
 | change the calendar stack | edit `infra/calendar-2026/template.yaml`, open a pull request, read the plan, merge |
 | change the calendar code (Lambdas, edge function) | edit `calendar-2026/src/` or `calendar-2026/edge/`, open a pull request, read the plan, merge |
 | publish or update the month photos | `python3 calendar-2026/tools/months.py <folder>` (needs `pip install Pillow pillow-heif boto3`) |
-| pause, close, reopen the calendar | `calendar-2026/tools/switch.sh pause|close|open|off|status` |
+| pause, close, reopen the calendar | `calendar-2026/tools/switch.sh pause|close|open|off|status`, or Actions, "Calendar 2026 switch", Run workflow (works from the GitHub app) |
 | rotate an admin code | `python3 calendar-2026/tools/setup-secrets.py admin <name>` |
 | set up the calendar secrets the first time | `python3 calendar-2026/tools/setup-secrets.py init` (after the first deploy; prints both admin codes once) |

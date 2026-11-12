@@ -478,6 +478,45 @@ Resources:
                 Action: [cloudfront-keyvaluestore:DescribeKeyValueStore, cloudfront-keyvaluestore:GetKey]
                 Resource: "*"
 
+  # Kill switch: the mode key, the two functions' concurrency, read-only status. Environment calendar-2026-switch.
+  CalendarSwitchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: calendar-2026-switch
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Federated: !Ref GitHubOidcProvider }
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${Repository}:environment:calendar-2026-switch
+      Policies:
+        - PolicyName: switch
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: cloudformation:DescribeStacks
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${StackName}/*
+              - Effect: Allow
+                Action: [cloudfront-keyvaluestore:DescribeKeyValueStore, cloudfront-keyvaluestore:GetKey, cloudfront-keyvaluestore:PutKey]
+                Resource: "*"
+              - Effect: Allow
+                Action: [lambda:PutFunctionConcurrency, lambda:GetFunctionConcurrency]
+                Resource:
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:calendar-2026-api
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:calendar-2026-processor
+              - Effect: Allow
+                Action: cloudfront:GetDistribution
+                Resource: "*"
+              - Effect: Deny
+                Action: cloudfront:*
+                Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${PortfolioDistributionId}
+
   # ---------- domain ----------
   # Plan: change sets on molpecer-domain, pull requests and main. Cannot execute.
   DomainInfraPlanRole:
@@ -572,6 +611,8 @@ Outputs:
     Value: !GetAtt CalendarInfraRole.Arn
   CalendarArtifactsBucket:
     Value: !Ref ArtifactsBucket
+  CalendarSwitchRoleArn:
+    Value: !GetAtt CalendarSwitchRole.Arn
   DomainInfraPlanRoleArn:
     Value: !GetAtt DomainInfraPlanRole.Arn
   DomainInfraRoleArn:
