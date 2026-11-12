@@ -1,8 +1,8 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
-  CI identities for the molpecer.es repo: the GitHub OIDC provider and the
-  roles GitHub Actions assumes. Deployed by hand (stack molpecer-ci); it is the
-  bootstrap, so no workflow deploys it.
+  CI identities for the molpecer.es repo: the GitHub OIDC provider and every
+  role GitHub Actions assumes, for the domain and the portfolio. Hand-deployed
+  (stack molpecer-ci): this is what enables the other stacks' pipelines.
 
 Parameters:
   Repository:
@@ -17,10 +17,15 @@ Parameters:
   PortfolioStackName:
     Type: String
     Default: molpecer-portfolio
+  HostedZoneId:
+    Type: String
+    Default: Z0539383IHVUAXRRCIKD
 
 Resources:
   GitHubOidcProvider:
     Type: AWS::IAM::OIDCProvider
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       Url: https://token.actions.githubusercontent.com
       ClientIdList: [sts.amazonaws.com]
@@ -28,6 +33,7 @@ Resources:
         - 6938fd4d98bab03faadb97b34396831e3780aea1
         - 1c58a3a8518e8759bf075b76b750d4f2df264fcd
 
+  # ---------- portfolio ----------
   # Content deploy: sync portfolio/ to the bucket and invalidate. Environment "portfolio".
   PortfolioDeployRole:
     Type: AWS::IAM::Role
@@ -136,6 +142,7 @@ Resources:
                   - cloudformation:DetectStackDrift
                   - cloudformation:DescribeStackResourceDrifts
                   - cloudformation:DescribeStackDriftDetectionStatus
+                  - cloudformation:UpdateTerminationProtection
                 Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${PortfolioStackName}/*
               - Effect: Allow
                 Action: cloudformation:ValidateTemplate
@@ -168,6 +175,27 @@ Resources:
                   - cloudfront:GetCachePolicy
                   - cloudfront:GetOriginRequestPolicy
                 Resource: "*"
+              # The zone itself (never deleted) and only the portfolio's own record names in it.
+              - Effect: Allow
+                Action: [route53:GetHostedZone, route53:ListResourceRecordSets, route53:ListTagsForResource, route53:ChangeTagsForResource, route53:UpdateHostedZoneComment]
+                Resource: arn:aws:route53:::hostedzone/Z0539383IHVUAXRRCIKD
+              - Effect: Allow
+                Action: route53:ChangeResourceRecordSets
+                Resource: arn:aws:route53:::hostedzone/Z0539383IHVUAXRRCIKD
+                Condition:
+                  ForAllValues:StringLike:
+                    route53:ChangeResourceRecordSetsNormalizedRecordNames: [molpecer.es, www.molpecer.es, "_*.molpecer.es"]
+                  ForAllValues:StringEquals:
+                    route53:ChangeResourceRecordSetsRecordTypes: [A, AAAA, CNAME]
+              - Effect: Allow
+                Action: [route53:GetChange, route53:ListHostedZones, route53:ListHostedZonesByName]
+                Resource: "*"
+              - Effect: Deny
+                Action: [route53:DeleteHostedZone, route53:CreateHostedZone]
+                Resource: "*"
+              - Effect: Allow
+                Action: [acm:RequestCertificate, acm:DescribeCertificate, acm:DeleteCertificate, acm:AddTagsToCertificate, acm:RemoveTagsFromCertificate, acm:ListTagsForCertificate, acm:ListCertificates, acm:GetCertificate]
+                Resource: "*"
               - Effect: Allow
                 Action:
                   - s3:GetBucket*
@@ -182,6 +210,85 @@ Resources:
                   - s3:PutBucketTagging
                 Resource: !Sub arn:aws:s3:::${PortfolioBucket}
 
+  # ---------- domain ----------
+  # Plan: change sets on molpecer-domain, pull requests and main. Cannot execute.
+  DomainInfraPlanRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: molpecer-domain-infra-plan
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Federated: !Ref GitHubOidcProvider }
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub:
+                  - !Sub repo:${Repository}:pull_request
+                  - !Sub repo:${Repository}:ref:refs/heads/main
+      Policies:
+        - PolicyName: change-set-read
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [cloudformation:CreateChangeSet, cloudformation:DescribeChangeSet, cloudformation:DeleteChangeSet, cloudformation:ListChangeSets, cloudformation:DescribeStacks, cloudformation:DescribeStackEvents, cloudformation:GetTemplate, cloudformation:GetTemplateSummary]
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/molpecer-domain/*
+              - Effect: Allow
+                Action: cloudformation:ValidateTemplate
+                Resource: "*"
+
+  # Apply: the zone's own settings, domain-level records only, the mail identity. Environment domain-infra.
+  DomainInfraRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: molpecer-domain-infra
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Federated: !Ref GitHubOidcProvider }
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${Repository}:environment:domain-infra
+      Policies:
+        - PolicyName: stack-update
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [cloudformation:CreateChangeSet, cloudformation:DescribeChangeSet, cloudformation:ExecuteChangeSet, cloudformation:DeleteChangeSet, cloudformation:ListChangeSets, cloudformation:DescribeStacks, cloudformation:DescribeStackEvents, cloudformation:DescribeStackResources, cloudformation:GetTemplate, cloudformation:GetTemplateSummary, cloudformation:UpdateTerminationProtection]
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/molpecer-domain/*
+              - Effect: Allow
+                Action: cloudformation:ValidateTemplate
+                Resource: "*"
+              - Effect: Allow
+                Action: [route53:GetHostedZone, route53:ListResourceRecordSets, route53:ListTagsForResource, route53:ChangeTagsForResource, route53:UpdateHostedZoneComment]
+                Resource: !Sub arn:aws:route53:::hostedzone/${HostedZoneId}
+              - Effect: Allow
+                Action: route53:ChangeResourceRecordSets
+                Resource: !Sub arn:aws:route53:::hostedzone/${HostedZoneId}
+                Condition:
+                  ForAllValues:StringLike:
+                    route53:ChangeResourceRecordSetsNormalizedRecordNames: [molpecer.es, _dmarc.molpecer.es, "*._domainkey.molpecer.es"]
+                  ForAllValues:StringEquals:
+                    route53:ChangeResourceRecordSetsRecordTypes: [TXT, MX, CNAME]
+              - Effect: Allow
+                Action: [route53:GetChange, route53:ListHostedZones, route53:ListHostedZonesByName]
+                Resource: "*"
+              - Effect: Deny
+                Action: [route53:DeleteHostedZone, route53:CreateHostedZone]
+                Resource: "*"
+              - Effect: Allow
+                Action: [ses:CreateEmailIdentity, ses:DeleteEmailIdentity, ses:GetEmailIdentity, ses:PutEmailIdentityDkimAttributes, ses:PutEmailIdentityDkimSigningAttributes, ses:PutEmailIdentityFeedbackAttributes, ses:PutEmailIdentityMailFromAttributes, ses:TagResource, ses:UntagResource, ses:ListTagsForResource]
+                Resource: !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/molpecer.es
+
 Outputs:
   PortfolioDeployRoleArn:
     Value: !GetAtt PortfolioDeployRole.Arn
@@ -189,3 +296,7 @@ Outputs:
     Value: !GetAtt PortfolioInfraPlanRole.Arn
   PortfolioInfraRoleArn:
     Value: !GetAtt PortfolioInfraRole.Arn
+  DomainInfraPlanRoleArn:
+    Value: !GetAtt DomainInfraPlanRole.Arn
+  DomainInfraRoleArn:
+    Value: !GetAtt DomainInfraRole.Arn
