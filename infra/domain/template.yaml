@@ -2,9 +2,7 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
   molpecer.es domain: the hosted zone (imported once by hand) and everything
   that belongs to the domain rather than to a site: the mail identity with its
-  DKIM records, SPF, DMARC and a null MX. The two original A alias records for
-  the apex and www predate every stack and stay outside (simple records cannot
-  be imported). Stack molpecer-domain.
+  DKIM records, SPF, DMARC and a null MX. Stack molpecer-domain.
 
 Parameters:
   ReportEmail:
