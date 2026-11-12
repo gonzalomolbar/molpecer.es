@@ -10,6 +10,7 @@ var MONTHS = ['january', 'february', 'march', 'april', 'may', 'june',
   'july', 'august', 'september', 'october', 'november', 'december'];
 
 var PAGES = { '/': '/index.html', '/index.html': '/index.html', '/month.html': '/month.html',
+  '/months': '/months.html', '/months/': '/months.html', '/months.html': '/months.html',
   '/wall': '/wall/index.html', '/wall/': '/wall/index.html', '/wall/index.html': '/wall/index.html', '/404.html': '/404.html' };
 
 function reply(status, text, body, extra) {

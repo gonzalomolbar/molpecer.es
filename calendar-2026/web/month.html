@@ -19,13 +19,7 @@
 
   <h2 id="heading"></h2>
 
-  <section class="card hidden" id="locked">
-    <p data-i18n="locked"></p>
-    <label for="code" data-i18n="code_label"></label>
-    <input type="text" id="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="NOMBRE-XXXX">
-    <button type="button" class="primary" id="unlock" data-i18n="unlock"></button>
-    <div class="status" id="status"></div>
-  </section>
+  <section class="card hidden" id="locked"><div class="status" id="status"></div></section>
 
   <section class="hidden" id="open">
     <div class="grid" id="grid"></div>
@@ -33,7 +27,7 @@
   </section>
 
   <nav class="months" id="months"></nav>
-  <footer><a href="/" data-i18n="home"></a></footer>
+  <footer><a href="/months" data-i18n="all_months"></a> · <a href="/" data-i18n="home"></a></footer>
 </main>
 <div class="lightbox" id="lightbox"><img id="lightbox-img" alt=""></div>
 </body>

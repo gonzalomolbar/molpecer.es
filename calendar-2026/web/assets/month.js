@@ -1,5 +1,5 @@
 // One page for the twelve months: reads the month from the path, asks the edge for the data,
-// and shows the code form or the photo grid.
+// and shows the photo grid; without a valid code it sends the visitor to the front door at /months.
 document.addEventListener('DOMContentLoaded', function () {
   var $ = function (id) { return document.getElementById(id); };
   var month = location.pathname.replace(/^\/|\/$/g, '').toLowerCase();
@@ -42,20 +42,8 @@ document.addEventListener('DOMContentLoaded', function () {
     try { data = await res.json(); } catch (e) {}
     if (res.status === 200) return render(data.photos || []);
     if (res.status === 503) { $('status').textContent = window.t(data.error === 'paused' ? 'err_paused' : 'err_closed'); show('locked'); return; }
-    show('locked');
+    location.replace('/months');
   }
-
-  $('unlock').addEventListener('click', async function () {
-    var code = $('code').value.trim();
-    if (!code) return;
-    $('unlock').disabled = true; $('status').textContent = window.t('unlocking'); $('status').classList.remove('error');
-    var r = await window.api('POST', '/api/unlock', { code: code });
-    $('unlock').disabled = false;
-    if (r.status !== 200) { $('status').textContent = window.t(window.errorKey(r.status, r.data)); $('status').classList.add('error'); return; }
-    $('status').textContent = '';
-    load();
-  });
-  $('code').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('unlock').click(); });
 
   load();
 });

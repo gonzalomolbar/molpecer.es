@@ -73,7 +73,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!ok) { $('send').disabled = false; return status(window.t('err_generic'), true); }
     status('');
     $('code').textContent = r.data.code;
-    $('go-month').href = '/' + sel.value;
     $('form-card').classList.add('hidden'); $('done-card').classList.remove('hidden');
     window.scrollTo(0, 0);
   });

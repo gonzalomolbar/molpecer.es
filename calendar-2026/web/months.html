@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Calendar 2026</title>
+<link rel="stylesheet" href="/assets/style.css">
+<script src="/assets/i18n.js" defer></script>
+<script src="/assets/app.js" defer></script>
+<script src="/assets/months.js" defer></script>
+</head>
+<body>
+<main>
+  <header class="top">
+    <h1><a href="/" data-i18n="title">Calendario 2026</a></h1>
+    <div class="lang"><button type="button" data-lang="es">ES</button><button type="button" data-lang="en">EN</button></div>
+  </header>
+
+  <h2 data-i18n="months_title"></h2>
+
+  <section class="card hidden" id="locked">
+    <p data-i18n="months_locked"></p>
+    <label for="code" data-i18n="code_label"></label>
+    <input type="text" id="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="NOMBRE-XXXX">
+    <button type="button" class="primary" id="unlock" data-i18n="unlock"></button>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section class="hidden" id="open">
+    <p class="intro" data-i18n="months_pick"></p>
+    <nav class="months" id="months"></nav>
+  </section>
+
+  <footer><a href="/" data-i18n="home"></a></footer>
+</main>
+</body>
+</html>
