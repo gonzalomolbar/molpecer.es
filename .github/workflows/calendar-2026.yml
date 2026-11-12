@@ -1,0 +1,32 @@
+name: Deploy Calendar 2026 pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "calendar-2026/web/**"
+      - ".github/workflows/calendar-2026.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: calendar-2026
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Sync pages to S3 (months/ belongs to the publish tool)
+        run: aws s3 sync calendar-2026/web "s3://calendar-2026-web-${{ vars.AWS_ACCOUNT_ID }}/" --delete --exclude "months/*" --cache-control "public, max-age=300"
+
+      - name: Invalidate CloudFront
+        run: |
+          dist="$(aws cloudformation describe-stacks --region us-east-1 --stack-name calendar-2026 --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)"
+          aws cloudfront create-invalidation --distribution-id "$dist" --paths "/*"

@@ -23,5 +23,6 @@ ehthumbs.db
 # Docs
 docs/
 # build output
+calendar-2026/.build/
 __pycache__/
 .pytest_cache/

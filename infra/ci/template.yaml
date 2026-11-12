@@ -1,8 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >-
   CI identities for the molpecer.es repo: the GitHub OIDC provider and every
-  role GitHub Actions assumes, for the domain and the portfolio. Hand-deployed
-  (stack molpecer-ci): this is what enables the other stacks' pipelines.
+  role GitHub Actions assumes, for the domain, the portfolio and Calendar 2026, plus the
+  calendar's packaging bucket and permissions boundary. Hand-deployed (stack
+  molpecer-ci): this is what enables the other stacks' pipelines.
 
 Parameters:
   Repository:
@@ -20,6 +21,12 @@ Parameters:
   HostedZoneId:
     Type: String
     Default: Z0539383IHVUAXRRCIKD
+  StackName:
+    Type: String
+    Default: calendar-2026
+  DomainName:
+    Type: String
+    Default: calendar-2026.toribios.molpecer.es
 
 Resources:
   GitHubOidcProvider:
@@ -210,6 +217,267 @@ Resources:
                   - s3:PutBucketTagging
                 Resource: !Sub arn:aws:s3:::${PortfolioBucket}
 
+  # ---------- calendar 2026 ----------
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub calendar-2026-artifacts-${AWS::AccountId}
+      PublicAccessBlockConfiguration: { BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true }
+      BucketEncryption:
+        ServerSideEncryptionConfiguration: [{ ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 } }]
+      LifecycleConfiguration:
+        Rules: [{ Id: expire-artifacts, Status: Enabled, ExpirationInDays: 30 }]
+
+  # Ceiling for every role the calendar stack creates (its Lambda roles).
+  CalendarBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: calendar-2026-boundary
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: [logs:CreateLogStream, logs:PutLogEvents]
+            Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/calendar-2026-*
+          - Effect: Allow
+            Action: [s3:GetObject, s3:PutObject, s3:DeleteObject, s3:ListBucket]
+            Resource:
+              - !Sub arn:aws:s3:::calendar-2026-data-${AWS::AccountId}
+              - !Sub arn:aws:s3:::calendar-2026-data-${AWS::AccountId}/*
+          - Effect: Allow
+            Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:DeleteItem, dynamodb:Query, dynamodb:Scan, dynamodb:BatchGetItem, dynamodb:BatchWriteItem, dynamodb:ConditionCheckItem, dynamodb:DescribeTable]
+            Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/calendar-2026*
+          - Effect: Allow
+            Action: ses:SendEmail
+            Resource: !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*
+          - Effect: Allow
+            Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
+            Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/calendar-2026/*
+          - Effect: Allow
+            Action: lambda:PutFunctionConcurrency
+            Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:calendar-2026-*
+          - Effect: Allow
+            Action: [xray:PutTraceSegments, xray:PutTelemetryRecords]
+            Resource: "*"
+
+  # Stack apply: executes change sets on calendar-2026. Environment calendar-2026-infra.
+  CalendarInfraRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: calendar-2026-infra
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Federated: !Ref GitHubOidcProvider }
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${Repository}:environment:calendar-2026-infra
+      Policies:
+        - PolicyName: stack-apply
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # --- the stack itself ---
+              - Effect: Allow
+                Action: [cloudformation:CreateChangeSet, cloudformation:DescribeChangeSet, cloudformation:ExecuteChangeSet, cloudformation:DeleteChangeSet, cloudformation:ListChangeSets, cloudformation:DescribeStacks, cloudformation:DescribeStackEvents, cloudformation:DescribeStackResources, cloudformation:GetTemplate, cloudformation:GetTemplateSummary, cloudformation:CreateStack, cloudformation:UpdateStack, cloudformation:ListStackResources, cloudformation:UpdateTerminationProtection]
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${StackName}/*
+              - Effect: Allow
+                Action: cloudformation:CreateChangeSet
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31
+              - Effect: Allow
+                Action: [cloudformation:ValidateTemplate, cloudformation:ListStacks]
+                Resource: "*"
+              # --- packaging ---
+              - Effect: Allow
+                Action: [s3:ListBucket, s3:GetObject, s3:PutObject]
+                Resource:
+                  - !GetAtt ArtifactsBucket.Arn
+                  - !Sub ${ArtifactsBucket.Arn}/*
+              # --- resources the stack creates, all named calendar-2026* ---
+              - Effect: Allow
+                Action: s3:*
+                Resource:
+                  - !Sub arn:aws:s3:::calendar-2026-data-${AWS::AccountId}
+                  - !Sub arn:aws:s3:::calendar-2026-web-${AWS::AccountId}
+              - Effect: Allow
+                Action: s3:PutBucketPolicy
+                Resource: !Sub arn:aws:s3:::calendar-2026-web-${AWS::AccountId}
+              - Effect: Allow
+                Action: dynamodb:*
+                Resource: !Sub arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/calendar-2026*
+              - Effect: Allow
+                Action: lambda:*
+                Resource:
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:calendar-2026-*
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:event-source-mapping:*
+              - Effect: Allow
+                Action: [lambda:GetEventSourceMapping, lambda:ListEventSourceMappings, lambda:ListFunctions, lambda:GetAccountSettings]
+                Resource: "*"
+              - Effect: Allow
+                Action: logs:*
+                Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/calendar-2026-*
+              - Effect: Allow
+                Action: [logs:DescribeLogGroups]
+                Resource: "*"
+              - Effect: Allow
+                Action: sns:*
+                Resource: !Sub arn:aws:sns:${AWS::Region}:${AWS::AccountId}:calendar-2026-*
+              - Effect: Allow
+                Action: [cloudwatch:PutMetricAlarm, cloudwatch:DeleteAlarms, cloudwatch:DescribeAlarms, cloudwatch:TagResource, cloudwatch:UntagResource, cloudwatch:ListTagsForResource]
+                Resource: !Sub arn:aws:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:calendar-2026-*
+              - Effect: Allow
+                Action: [ssm:PutParameter, ssm:DeleteParameter, ssm:GetParameter, ssm:GetParameters, ssm:AddTagsToResource, ssm:RemoveTagsFromResource, ssm:ListTagsForResource]
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/calendar-2026/*
+              - Effect: Allow
+                Action: ssm:DescribeParameters
+                Resource: "*"
+              # CloudFront resources are id-based; allow broadly, deny the portfolio explicitly.
+              - Effect: Allow
+                Action: cloudfront:*
+                Resource: "*"
+              - Effect: Deny
+                Action: cloudfront:*
+                Resource:
+                  - !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${PortfolioDistributionId}
+                  - !Sub arn:aws:cloudfront::${AWS::AccountId}:function/molpecer-portfolio-*
+              - Effect: Deny
+                Action: cloudfront:AssociateAlias
+                Resource: "*"
+              - Effect: Allow
+                Action: [cloudfront-keyvaluestore:DescribeKeyValueStore, cloudfront-keyvaluestore:GetKey, cloudfront-keyvaluestore:ListKeys]
+                Resource: "*"
+              # DNS: only the site's own names and the DKIM names in the one zone; never the apex or www.
+              - Effect: Allow
+                Action: route53:ChangeResourceRecordSets
+                Resource: !Sub arn:aws:route53:::hostedzone/${HostedZoneId}
+                Condition:
+                  ForAllValues:StringLike:
+                    route53:ChangeResourceRecordSetsNormalizedRecordNames:
+                      - !Ref DomainName
+                      - !Sub "*.${DomainName}"
+                  ForAllValues:StringEquals:
+                    route53:ChangeResourceRecordSetsRecordTypes: [A, AAAA, CNAME]
+              - Effect: Allow
+                Action: [route53:GetChange, route53:GetHostedZone, route53:ListHostedZones, route53:ListResourceRecordSets]
+                Resource: "*"
+              - Effect: Allow
+                Action: [acm:RequestCertificate, acm:DescribeCertificate, acm:DeleteCertificate, acm:AddTagsToCertificate, acm:RemoveTagsFromCertificate, acm:ListTagsForCertificate, acm:ListCertificates, acm:GetCertificate]
+                Resource: "*"
+              - Effect: Allow
+                Action: [ses:CreateEmailIdentity, ses:DeleteEmailIdentity, ses:GetEmailIdentity, ses:TagResource, ses:UntagResource, ses:ListTagsForResource]
+                Resource: !Sub arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*@*
+              # --- IAM: only roles the stack creates, only under its path, only with the boundary ---
+              - Effect: Allow
+                Action: [iam:GetRole, iam:GetRolePolicy, iam:ListRolePolicies, iam:ListAttachedRolePolicies, iam:ListRoleTags]
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026/*
+              - Effect: Allow
+                Action: [iam:CreateRole, iam:PutRolePolicy, iam:AttachRolePolicy]
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026/*
+                Condition:
+                  StringEquals:
+                    iam:PermissionsBoundary: !Ref CalendarBoundary
+              - Effect: Allow
+                Action: [iam:DeleteRole, iam:DeleteRolePolicy, iam:DetachRolePolicy, iam:UpdateRole, iam:UpdateRoleDescription, iam:UpdateAssumeRolePolicy, iam:TagRole, iam:UntagRole]
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026/*
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/calendar-2026/*
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: lambda.amazonaws.com
+              - Effect: Deny
+                Action: [iam:DeleteRolePermissionsBoundary, iam:PutRolePermissionsBoundary]
+                Resource: "*"
+              - Effect: Deny
+                Action: [iam:CreatePolicyVersion, iam:DeletePolicy, iam:DeletePolicyVersion, iam:SetDefaultPolicyVersion]
+                Resource: !Ref CalendarBoundary
+
+
+  # Pages: sync web/ (never months/) and invalidate. Environment calendar-2026.
+  CalendarDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: calendar-2026-deploy
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Federated: !Ref GitHubOidcProvider }
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${Repository}:environment:calendar-2026
+      Policies:
+        - PolicyName: sync-and-invalidate
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !Sub arn:aws:s3:::calendar-2026-web-${AWS::AccountId}
+              - Effect: Allow
+                Action: [s3:PutObject, s3:GetObject, s3:DeleteObject]
+                Resource: !Sub arn:aws:s3:::calendar-2026-web-${AWS::AccountId}/*
+              - Effect: Deny
+                Action: [s3:PutObject, s3:DeleteObject]
+                Resource: !Sub arn:aws:s3:::calendar-2026-web-${AWS::AccountId}/months/*
+              - Effect: Allow
+                Action: cloudformation:DescribeStacks
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${StackName}/*
+              - Effect: Allow
+                Action: cloudfront:CreateInvalidation
+                Resource: "*"
+              - Effect: Deny
+                Action: cloudfront:*
+                Resource: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${PortfolioDistributionId}
+
+  # Stack plan: build, package and create a change set on pull requests and on main. Cannot execute.
+  CalendarInfraPlanRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: calendar-2026-infra-plan
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Federated: !Ref GitHubOidcProvider }
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub:
+                  - !Sub repo:${Repository}:pull_request
+                  - !Sub repo:${Repository}:ref:refs/heads/main
+      Policies:
+        - PolicyName: change-set-read
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: [cloudformation:CreateChangeSet, cloudformation:DescribeChangeSet, cloudformation:DeleteChangeSet, cloudformation:ListChangeSets, cloudformation:DescribeStacks, cloudformation:DescribeStackEvents, cloudformation:GetTemplate, cloudformation:GetTemplateSummary]
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${StackName}/*
+              - Effect: Allow
+                Action: cloudformation:CreateChangeSet
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:aws:transform/Serverless-2016-10-31
+              - Effect: Allow
+                Action: cloudformation:ValidateTemplate
+                Resource: "*"
+              - Effect: Allow
+                Action: [s3:ListBucket, s3:GetObject, s3:PutObject]
+                Resource:
+                  - !GetAtt ArtifactsBucket.Arn
+                  - !Sub ${ArtifactsBucket.Arn}/*
+              - Effect: Allow
+                Action: [cloudfront-keyvaluestore:DescribeKeyValueStore, cloudfront-keyvaluestore:GetKey]
+                Resource: "*"
+
   # ---------- domain ----------
   # Plan: change sets on molpecer-domain, pull requests and main. Cannot execute.
   DomainInfraPlanRole:
@@ -296,6 +564,14 @@ Outputs:
     Value: !GetAtt PortfolioInfraPlanRole.Arn
   PortfolioInfraRoleArn:
     Value: !GetAtt PortfolioInfraRole.Arn
+  CalendarDeployRoleArn:
+    Value: !GetAtt CalendarDeployRole.Arn
+  CalendarInfraPlanRoleArn:
+    Value: !GetAtt CalendarInfraPlanRole.Arn
+  CalendarInfraRoleArn:
+    Value: !GetAtt CalendarInfraRole.Arn
+  CalendarArtifactsBucket:
+    Value: !Ref ArtifactsBucket
   DomainInfraPlanRoleArn:
     Value: !GetAtt DomainInfraPlanRole.Arn
   DomainInfraRoleArn:
